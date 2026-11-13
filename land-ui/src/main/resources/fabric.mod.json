@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "landmod-ui",
+  "version": "${version}",
+  "name": "Land UI",
+  "description": "Optional client screen for picking whole 16×16 chunks on the map. The server only needs landmod. Commands work without this jar, and vanilla clients can join.",
+  "authors": ["heplus1s"],
+  "contact": {
+    "repo": "https://github.com/heplus1s/MinecraftUIMod"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.jdguo.land.ui.LandUi"]
+  },
+  "mixins": ["landmod-ui.mixins.json"],
+  "recommends": {
+    "landmod": "*"
+  },
+  "suggests": {
+    "xaeroworldmap": "*",
+    "xaerominimap": "*"
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}

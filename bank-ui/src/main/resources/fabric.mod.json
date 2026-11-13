@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "bankmod-ui",
+  "version": "${version}",
+  "name": "Central Bank UI",
+  "description": "Optional client screen for the central bank. No sidebar. Clients without this jar keep the chest screen. Vanilla clients can still join.",
+  "authors": ["heplus1s"],
+  "contact": {
+    "repo": "https://github.com/heplus1s/MinecraftUIMod"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.jdguo.bank.ui.BankUiClient"]
+  },
+  "recommends": {
+    "bankmod": "*"
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
