@@ -48,10 +48,24 @@ class BankLayoutTest {
                     assertTrue(band.actionY() + 18 <= bottom);
                     assertTrue(BankLayout.mainLeft(width) > BankLayout.columnRight(width));
                 }
-                BankLayout.ManagementPane pane = BankLayout.management(top, bottom, 6);
+                int buttonWidth = BankLayout.labelWidth(BankBook.BACKED_BUTTON);
+                int textWidth = BankBook.BACKED_EXPLANATION.codePointCount(0, BankBook.BACKED_EXPLANATION.length()) * 9;
+                int block = BankLayout.backedBlockHeight(BankLayout.mainWidth(width), buttonWidth, textWidth);
+                BankLayout.ManagementPane pane = BankLayout.management(top, bottom, 6, block);
                 assertTrue(pane.separated(), width + "x" + height + " management " + pane);
                 assertTrue(pane.bookBesideList());
-                assertTrue(pane.actionY() + 18 <= bottom);
+                assertTrue(pane.backedY() + 18 <= bottom);
+                assertTrue(pane.backedY() >= pane.fieldY());
+                BankLayout.BackedControl control = BankLayout.backedControl(width, pane.backedY(), buttonWidth, textWidth);
+                assertTrue(control.inside(BankLayout.mainLeft(width), BankLayout.mainRight(width)), control.toString());
+                assertTrue(control.buttonX() > BankLayout.columnRight(width));
+                if (pane.backedTop() < pane.backedY()) {
+                    assertTrue(control.textY() >= pane.backedTop());
+                    assertTrue(control.textY() >= pane.fieldY());
+                    assertTrue(control.textY() + control.textLines() * 12 <= control.buttonY());
+                } else if (control.textX() >= control.buttonX() + control.buttonWidth()) {
+                    assertTrue(control.textY() >= control.buttonY());
+                }
             }
         }
     }

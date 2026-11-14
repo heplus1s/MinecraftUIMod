@@ -37,7 +37,8 @@ class BankBookTest {
                 "已锁定准备金：暂无数据",
                 "按准备金尚可发行：暂无数据"), BankBook.book(data, "diamond", "钻石"));
         assertEquals(List.of("商店经营账户和土地出让账户：暂无数据"), BankBook.institutions(data));
-        assertTrue(BankBook.actionNotes().contains(BankBook.BACKED_NOTE));
+        assertTrue(BankBook.actionNotes().contains(BankBook.BACKED_EXPLANATION));
+        assertFalse(String.join("\n", BankBook.actionNotes()).contains("柜台还没有这个动作"));
     }
 
     @Test

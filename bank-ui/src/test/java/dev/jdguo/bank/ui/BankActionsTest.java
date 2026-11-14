@@ -25,6 +25,9 @@ class BankActionsTest {
         assertEquals("admin-freeze", BankActions.adminFreeze());
         assertEquals("admin-unbacked note 1000", BankActions.adminUnbacked("note", "1000"));
         assertEquals("admin-retire note 1000", BankActions.adminRetire("note", "1000"));
+        assertEquals("admin-backed diamond", BankActions.adminBacked("diamond"));
+        assertEquals("admin-backed note", BankActions.adminBacked("note"));
+        assertEquals(2, BankActions.adminBacked("copper").split(" ").length);
     }
 
     @Test

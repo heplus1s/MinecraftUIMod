@@ -12,7 +12,8 @@ public final class BankBook {
     public static final String FREEZE_NOTE = "只暂停或恢复用银行券兑换铜锭或钻石。普通存取不受影响。";
     public static final String UNBACKED_NOTE = "不增加准备金。增发所选货币，并记入操作者的账户。";
     public static final String RETIRE_NOTE = "从操作者的账户扣减所选货币，并减少发行额。";
-    public static final String BACKED_NOTE = "按准备金满额发行：柜台还没有这个动作。";
+    public static final String BACKED_BUTTON = "按准备金满额发行";
+    public static final String BACKED_EXPLANATION = "按管理列表里当前选中的货币，发行该货币按准备金尚可发行的剩余额度。这不是无准备金增发。";
     public static final String PAUSE = "暂停银行券兑付";
     public static final String RESUME = "恢复银行券兑付";
 
@@ -90,7 +91,7 @@ public final class BankBook {
     }
 
     public static List<String> actionNotes() {
-        return List.of(FREEZE_NOTE, UNBACKED_NOTE, RETIRE_NOTE, BACKED_NOTE);
+        return List.of(FREEZE_NOTE, UNBACKED_NOTE, RETIRE_NOTE, BACKED_EXPLANATION);
     }
 
     private static BankSnapshot.CentralRow find(JsonObject data, String currencyId, String currencyName) {

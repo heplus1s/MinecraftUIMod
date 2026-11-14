@@ -118,14 +118,34 @@ public final class BankLayout {
         }
     }
 
-    /** Currency list on the left of the main area, ledger lines beside it, amount controls below both. */
-    public record ManagementPane(int listTop, int listHeight, int bookY, int fieldY, int quickY, int actionY) {
+    /**
+     * Currency list on the left of the main area, ledger lines beside it, amount controls below both.
+     * {@code backedY} is the full-issue button. Its explanation occupies {@code backedTop} through that button.
+     */
+    public record ManagementPane(
+            int listTop, int listHeight, int bookY, int fieldY, int quickY, int actionY, int backedTop, int backedY) {
         public boolean bookBesideList() {
             return bookY == listTop;
         }
 
         public boolean separated() {
-            return listHeight >= 18 && listTop + listHeight + 8 <= fieldY && fieldY + 16 <= quickY && quickY + 18 <= actionY;
+            return listHeight >= 18
+                    && listTop + listHeight + 6 <= fieldY
+                    && fieldY + 16 <= quickY
+                    && quickY + 18 <= actionY
+                    && actionY + 18 <= backedTop
+                    && backedTop <= backedY;
+        }
+    }
+
+    /** Button and the explanation that sits beside it, or on the lines just above it. */
+    public record BackedControl(int buttonX, int buttonY, int buttonWidth, int textX, int textY, int textWidth, int textLines) {
+        public boolean inside(int mainLeft, int mainRight) {
+            return buttonX >= mainLeft
+                    && buttonX + buttonWidth <= mainRight
+                    && textX >= mainLeft
+                    && textWidth > 0
+                    && textX < mainRight;
         }
     }
 
@@ -159,24 +179,62 @@ public final class BankLayout {
         return new Band(listTop, listHeight, fieldY, quickY, actionY);
     }
 
-    public static ManagementPane management(int contentTop, int contentBottom, int prefaceLines) {
+    public static ManagementPane management(int contentTop, int contentBottom, int prefaceLines, int backedBlock) {
+        int block = Math.max(18, backedBlock);
+        int backedY = contentBottom - 18;
+        int backedTop = block <= 20 ? backedY : backedY - (block - 18);
+        int actionY = backedTop - 4 - 18;
+        int quickY = actionY - 4 - 18;
+        int fieldY = quickY - 4 - 16;
         int listTop = contentTop + 16 + Math.max(0, prefaceLines) * 12;
-        int actionY = contentBottom - 18;
-        int quickY = actionY - 22;
-        int fieldY = quickY - 20;
-        int listHeight = fieldY - 12 - listTop;
-        if (listHeight < 36) {
-            int liftedTop = Math.max(contentTop + 14, fieldY - 8 - 36);
+        int listHeight = fieldY - 8 - listTop;
+        if (listHeight < 18) {
+            int liftedTop = Math.max(contentTop + 12, fieldY - 8 - 36);
             listTop = Math.min(listTop, liftedTop);
             listHeight = fieldY - 8 - listTop;
         }
         if (listHeight > 108) {
             listHeight = 108;
         }
-        if (listHeight < 18) {
-            listHeight = 18;
+        if (listHeight < 18 || listTop + listHeight + 6 > fieldY || actionY + 18 > backedTop) {
+            backedY = contentBottom - 18;
+            backedTop = backedY;
+            actionY = backedTop - 2 - 18;
+            quickY = actionY - 2 - 18;
+            fieldY = quickY - 2 - 16;
+            listTop = Math.max(contentTop + 12, fieldY - 8 - 36);
+            listHeight = fieldY - 6 - listTop;
+            if (listHeight > 108) {
+                listHeight = 108;
+            }
+            if (listHeight < 18) {
+                listTop = contentTop;
+                listHeight = Math.max(18, fieldY - 6 - listTop);
+            }
         }
-        return new ManagementPane(listTop, listHeight, listTop, fieldY, quickY, actionY);
+        return new ManagementPane(listTop, listHeight, listTop, fieldY, quickY, actionY, backedTop, backedY);
+    }
+
+    public static int backedBlockHeight(int mainWidth, int buttonWidth, int textWidth) {
+        if (buttonWidth + 8 + textWidth <= mainWidth) {
+            return 20;
+        }
+        int lines = Math.max(1, (textWidth + Math.max(1, mainWidth) - 1) / Math.max(1, mainWidth));
+        return lines * 12 + 4 + 18;
+    }
+
+    public static BackedControl backedControl(int screenWidth, int buttonY, int buttonWidth, int textWidth) {
+        int left = mainLeft(screenWidth);
+        int right = mainRight(screenWidth);
+        int room = Math.max(0, right - left);
+        int gap = 8;
+        if (buttonWidth + gap + textWidth <= room) {
+            int start = left + Math.max(0, (room - buttonWidth - gap - textWidth) / 2);
+            return new BackedControl(start, buttonY, buttonWidth, start + buttonWidth + gap, buttonY + 5, textWidth, 1);
+        }
+        int buttonX = left + Math.max(0, (room - buttonWidth) / 2);
+        int lines = Math.max(1, (textWidth + Math.max(1, room) - 1) / Math.max(1, room));
+        return new BackedControl(buttonX, buttonY, buttonWidth, left, buttonY - 4 - lines * 12, room, lines);
     }
 
     public static List<Box> row(int x, int y, List<String> labels) {

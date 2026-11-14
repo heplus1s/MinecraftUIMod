@@ -58,6 +58,7 @@ public final class BankTerminalScreen extends Screen {
     protected void init() {
         amount = null;
         placed.clear();
+        managementPane = null;
         managementBookBeside = false;
         boolean admin = BankSnapshot.admin(data);
         if (page == Page.CONFIRM) {
@@ -123,6 +124,7 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private BankLayout.Band pageBand;
+    private BankLayout.ManagementPane managementPane;
     private boolean managementBookBeside;
 
     private void initMoney(List<BankSnapshot.MoneyRow> rows, boolean includeAll, String verb) {
@@ -235,8 +237,12 @@ public final class BankTerminalScreen extends Screen {
         }
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
+        int buttonWidth = textRenderer.getWidth(BankBook.BACKED_BUTTON) + 16;
+        int explanationWidth = textRenderer.getWidth(BankBook.BACKED_EXPLANATION);
+        int backedBlock = BankLayout.backedBlockHeight(mainWidth(), buttonWidth, explanationWidth);
         BankLayout.ManagementPane pane = BankLayout.management(
-                contentTop(), BankLayout.contentBottom(this.height), BankBook.preface(data).size());
+                contentTop(), BankLayout.contentBottom(this.height), BankBook.preface(data).size(), backedBlock);
+        managementPane = pane;
         pageBand = new BankLayout.Band(pane.listTop(), pane.listHeight(), pane.fieldY(), pane.quickY(), pane.actionY());
         managementBookBeside = pane.bookBesideList();
         int currencyWidth = managementBookBeside ? Math.max(80, (mainWidth() - 12) / 2) : listWidth();
@@ -266,6 +272,25 @@ public final class BankTerminalScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal(labels[2]), button ->
                         sendAmount(quantity -> BankActions.adminRetire(selected("pay", payId), quantity)))
                 .dimensions(x, y, widths[2], 18).build());
+        if (managementPane == null) {
+            return;
+        }
+        BankLayout.BackedControl backed = backedControl();
+        addDrawableChild(ButtonWidget.builder(Text.literal(BankBook.BACKED_BUTTON), button -> {
+            String currency = selected("pay", payId);
+            if (currency == null || currency.isBlank()) {
+                notice = "请先在列表中选择一项。";
+                return;
+            }
+            send(BankActions.adminBacked(currency));
+        }).dimensions(backed.buttonX(), backed.buttonY(), backed.buttonWidth(), 18).build());
+    }
+
+    private BankLayout.BackedControl backedControl() {
+        int buttonWidth = textRenderer.getWidth(BankBook.BACKED_BUTTON) + 16;
+        int explanationWidth = textRenderer.getWidth(BankBook.BACKED_EXPLANATION);
+        int buttonY = managementPane == null ? BankLayout.contentBottom(this.height) - 18 : managementPane.backedY();
+        return BankLayout.backedControl(this.width, buttonY, buttonWidth, explanationWidth);
     }
 
     private void initConfirm() {
@@ -500,7 +525,6 @@ public final class BankTerminalScreen extends Screen {
         List<String> ledger = new ArrayList<>();
         ledger.addAll(BankBook.book(data, currencyId, currencyName(currencyId)));
         ledger.addAll(BankBook.institutions(data));
-        ledger.add(BankBook.BACKED_NOTE);
         ledger.add(BankBook.FREEZE_NOTE);
         ledger.add(BankBook.UNBACKED_NOTE);
         ledger.add(BankBook.RETIRE_NOTE);
@@ -508,9 +532,25 @@ public final class BankTerminalScreen extends Screen {
             if (pageBand != null && bookY >= pageBand.fieldY() - 2) {
                 break;
             }
-            int color = row.contains(BankBook.MISSING) || row.equals(BankBook.BACKED_NOTE) ? 0xFFAAAAAA : 0xFFE6E6E6;
+            int color = row.contains(BankBook.MISSING) ? 0xFFAAAAAA : 0xFFE6E6E6;
             context.drawText(textRenderer, row, bookX, bookY, color, false);
             bookY += 12;
+        }
+        if (managementPane != null) {
+            BankLayout.BackedControl backed = backedControl();
+            boolean stacked = managementPane.backedTop() < managementPane.backedY();
+            if (stacked) {
+                drawFitted(context, BankBook.BACKED_EXPLANATION, backed.textX(),
+                        Math.max(backed.textY(), managementPane.backedTop()),
+                        Math.min(backed.textWidth(), mainRight() - backed.textX()),
+                        0xFFAAAAAA, backed.buttonY());
+            } else {
+                int textX = backed.textLines() == 1 ? backed.textX() : backed.buttonX() + backed.buttonWidth() + 8;
+                int room = mainRight() - textX;
+                if (room > 8) {
+                    drawFitted(context, BankBook.BACKED_EXPLANATION, textX, backed.buttonY() + 5, room, 0xFFAAAAAA, backed.buttonY() + 16);
+                }
+            }
         }
     }
 
@@ -916,6 +956,20 @@ public final class BankTerminalScreen extends Screen {
 
     private int buttonWidth(String label) {
         return Math.max(BankLayout.labelWidth(label), textRenderer.getWidth(label) + 16);
+    }
+
+    private int drawFitted(DrawContext context, String line, int x, int y, int maxWidth, int color, int limitY) {
+        String rest = line == null ? "" : line;
+        while (!rest.isEmpty() && y + 9 <= limitY) {
+            String part = rest;
+            while (textRenderer.getWidth(part) > maxWidth && part.length() > 1) {
+                part = part.substring(0, part.offsetByCodePoints(0, part.codePointCount(0, part.length()) - 1));
+            }
+            context.drawText(textRenderer, part, x, y, color, false);
+            y += 12;
+            rest = rest.substring(part.length());
+        }
+        return y;
     }
 
     private int drawWrapped(DrawContext context, String line, int x, int y, int maxWidth, int color) {

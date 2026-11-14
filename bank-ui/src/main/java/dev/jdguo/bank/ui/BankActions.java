@@ -89,6 +89,11 @@ public final class BankActions {
         return "admin-retire " + currencyId + " " + quantity;
     }
 
+    /** Issues the whole remaining reserve room. The core takes no amount. */
+    public static String adminBacked(String currencyId) {
+        return "admin-backed " + currencyId;
+    }
+
     public static String close() {
         return "close";
     }
