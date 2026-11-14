@@ -69,7 +69,8 @@ public final class BankHeader {
             return "—";
         }
         try {
-            return new BigDecimal(raw.trim()).setScale(6, RoundingMode.HALF_UP).toPlainString();
+            String cleaned = raw.trim().replace(",", "").replace("_", "");
+            return new BigDecimal(cleaned).setScale(6, RoundingMode.HALF_UP).toPlainString();
         } catch (NumberFormatException exception) {
             return "—";
         }

@@ -42,6 +42,18 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         return row == null ? "" : row.choice.label;
     }
 
+    void select(String id) {
+        if (id == null || id.isBlank()) {
+            return;
+        }
+        for (Row row : children()) {
+            if (id.equals(row.choice.id)) {
+                setSelected(row);
+                return;
+            }
+        }
+    }
+
     @Override
     public int getRowWidth() {
         return width - 12;

@@ -29,8 +29,12 @@ class BankHeaderTest {
                 "兑付正常"), lines);
         assertFalse(BankChrome.SIDEBAR);
         assertFalse(String.join("\n", lines).contains("兑付能力"));
-        assertTrue(BankChrome.TABS.contains("储蓄"));
-        assertTrue(BankChrome.TABS.contains("个人发行"));
+        assertEquals(List.of("储蓄", "存入", "取出", "兑换", "汇票", "交易"), BankChrome.FUNCTION_TABS);
+        assertFalse(BankChrome.FUNCTION_TABS.contains("个人发行"));
+        assertFalse(BankChrome.FUNCTION_TABS.contains("关闭"));
+        assertEquals("个人储蓄", BankChrome.SAVINGS_TITLE);
+        assertEquals("个人发行", BankChrome.ISSUANCE);
+        assertEquals("中央银行管理", BankChrome.MANAGEMENT);
     }
 
     @Test
@@ -65,5 +69,6 @@ class BankHeaderTest {
         assertFalse(BankHeader.showStatus("兑付能力 12%"));
         assertFalse(BankHeader.showStatus("兑付：暂停"));
         assertEquals("1.234568", BankHeader.fixed6("1.2345678"));
+        assertEquals("1004.500000", BankHeader.fixed6("1,004.5"));
     }
 }
