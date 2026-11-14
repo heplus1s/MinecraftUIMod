@@ -62,6 +62,26 @@ public final class BankBook {
         return PAUSE;
     }
 
+    /**
+     * Reserve and savings lines for 铜锭, 钻石, and 银行券.
+     * They do not depend on which currency an adjustment will use.
+     */
+    public static List<String> visibleLedger(JsonObject data) {
+        List<String> lines = new ArrayList<>();
+        lines.addAll(preface(data));
+        lines.addAll(currencyLines(data, "copper", "铜锭", "copperReserve", false));
+        lines.addAll(currencyLines(data, "diamond", "钻石", "diamondReserve", false));
+        lines.addAll(currencyLines(data, "note", "银行券", "noteReserve", true));
+        for (BankSnapshot.CentralRow row : BankSnapshot.central(data)) {
+            if (isCore(row)) {
+                continue;
+            }
+            lines.addAll(linesFor(row.name(), false, null, row));
+        }
+        lines.addAll(institutions(data));
+        return lines;
+    }
+
     public static List<String> book(JsonObject data, String currencyId, String currencyName) {
         BankSnapshot.CentralRow row = find(data, currencyId, currencyName);
         List<String> lines = new ArrayList<>();
@@ -92,6 +112,27 @@ public final class BankBook {
 
     public static List<String> actionNotes() {
         return List.of(FREEZE_NOTE, UNBACKED_NOTE, RETIRE_NOTE, BACKED_EXPLANATION);
+    }
+
+    private static List<String> currencyLines(JsonObject data, String id, String name, String rootReserve, boolean note) {
+        return linesFor(name, note, BankSnapshot.text(data, rootReserve), find(data, id, name));
+    }
+
+    private static List<String> linesFor(String name, boolean note, String rootReserve, BankSnapshot.CentralRow row) {
+        String reserve = rootReserve != null ? rootReserve : row == null ? null : row.reserve();
+        List<String> lines = new ArrayList<>();
+        lines.add(field(note ? name + "发行准备金" : name + "准备金", reserve));
+        lines.add(field(name + "央行储蓄", row == null ? null : row.savings()));
+        lines.add(field(name + "存款保管", row == null ? null : row.vault()));
+        lines.add(field(name + "发行额", row == null ? null : row.liability()));
+        lines.add(field(name + "已锁定准备金", row == null ? null : row.locked()));
+        lines.add(field(name + "按准备金尚可发行", row == null ? null : row.backedRoom()));
+        return lines;
+    }
+
+    private static boolean isCore(BankSnapshot.CentralRow row) {
+        return "copper".equals(row.id()) || "diamond".equals(row.id()) || "note".equals(row.id())
+                || "铜锭".equals(row.name()) || "钻石".equals(row.name()) || "银行券".equals(row.name());
     }
 
     private static BankSnapshot.CentralRow find(JsonObject data, String currencyId, String currencyName) {

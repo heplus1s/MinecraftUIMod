@@ -37,6 +37,15 @@ class BankBookTest {
                 "已锁定准备金：暂无数据",
                 "按准备金尚可发行：暂无数据"), BankBook.book(data, "diamond", "钻石"));
         assertEquals(List.of("商店经营账户和土地出让账户：暂无数据"), BankBook.institutions(data));
+        List<String> ledger = BankBook.visibleLedger(data);
+        assertTrue(ledger.contains("铜锭准备金：1000000"));
+        assertTrue(ledger.contains("铜锭央行储蓄：4"));
+        assertTrue(ledger.contains("钻石准备金：1000"));
+        assertTrue(ledger.contains("钻石央行储蓄：20"));
+        assertTrue(ledger.contains("银行券发行准备金：1000000"));
+        assertTrue(ledger.contains("银行券央行储蓄：3"));
+        assertTrue(ledger.contains("银行券存款保管：暂无数据"));
+        assertTrue(ledger.contains("流通中现金（M0）：0"));
         assertTrue(BankBook.actionNotes().contains(BankBook.BACKED_EXPLANATION));
         assertFalse(String.join("\n", BankBook.actionNotes()).contains("柜台还没有这个动作"));
     }

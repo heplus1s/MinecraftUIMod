@@ -43,7 +43,7 @@ class BankSnapshotTest {
         assertEquals("8", BankSnapshot.central(data).get(0).vault());
         assertEquals("商店经营账户", BankSnapshot.institutions(data).get(0).name());
         assertEquals("土地出让账户", BankSnapshot.institutions(data).get(1).name());
-        assertEquals("浮动", BankSnapshot.regimeLabel("FLOAT"));
+        assertEquals("浮动汇率制", BankSnapshot.regimeLabel("FLOAT"));
         assertFalse(BankSnapshot.has(data, "interest"));
         assertFalse(BankSnapshot.has(data, "issuable"));
         assertTrue(BankSnapshot.admin(data));

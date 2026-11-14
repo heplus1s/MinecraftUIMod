@@ -16,6 +16,23 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         setRenderHorizontalShadows(false);
     }
 
+    @Override
+    public void render(net.minecraft.client.gui.DrawContext context, int mouseX, int mouseY, float delta) {
+        int innerLeft = this.left + 1;
+        int innerTop = this.top + 1;
+        int innerRight = this.right - 1;
+        int innerBottom = this.bottom - 1;
+        if (innerRight > innerLeft && innerBottom > innerTop) {
+            context.enableScissor(innerLeft, innerTop, innerRight, innerBottom);
+            super.render(context, mouseX, mouseY, delta);
+            context.disableScissor();
+        }
+        context.fill(this.left, this.top, this.right, this.top + 1, 0xFFC8A060);
+        context.fill(this.left, this.bottom - 1, this.right, this.bottom, 0xFFC8A060);
+        context.fill(this.left, this.top, this.left + 1, this.bottom, 0xFFC8A060);
+        context.fill(this.right - 1, this.top, this.right, this.bottom, 0xFFC8A060);
+    }
+
     void setChoices(List<Choice> choices) {
         String keep = selectedId();
         clearEntries();

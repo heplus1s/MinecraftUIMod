@@ -46,7 +46,31 @@ public final class BankSnapshot {
     }
 
     public static boolean hasPersonal(JsonObject data) {
-        return text(data, "personal") != null;
+        return text(data, "personal") != null || ownNote(data) != null;
+    }
+
+    public static JsonObject ownNote(JsonObject data) {
+        if (data == null || !data.has("ownNote") || !data.get("ownNote").isJsonObject()) {
+            return null;
+        }
+        return data.getAsJsonObject("ownNote");
+    }
+
+    /** Issuer regime name, preferring the core's own wording. */
+    public static String regimeName(JsonObject data) {
+        JsonObject note = ownNote(data);
+        String named = note == null ? null : text(note, "regimeName");
+        if (named == null) {
+            named = text(data, "regimeName");
+        }
+        if (named != null) {
+            return named;
+        }
+        String regime = note == null ? null : text(note, "regime");
+        if (regime == null) {
+            regime = text(data, "regime");
+        }
+        return regimeLabel(regime);
     }
 
     public static String text(JsonObject data, String key) {
@@ -166,9 +190,9 @@ public final class BankSnapshot {
             return null;
         }
         return switch (regime) {
-            case "FLOAT", "float" -> "浮动";
-            case "PEG", "peg" -> "钉住";
-            case "HARD", "hard" -> "定额兑付";
+            case "FLOAT", "float", "浮动", "浮动汇率制" -> "浮动汇率制";
+            case "PEG", "peg", "钉住", "联系汇率制" -> "联系汇率制";
+            case "HARD", "hard", "定额兑付", "固定汇率制" -> "固定汇率制";
             default -> regime;
         };
     }

@@ -39,6 +39,9 @@ class BankLayoutTest {
                 assertEquals("兑付汇票", tabs.get(5).label());
                 assertEquals("个人银行券交易", tabs.get(6).label());
                 assertTrue(manage.width() >= BankLayout.labelWidth(BankChrome.MANAGEMENT));
+                assertEquals(20, BankLayout.drawerHeight(false, 4));
+                assertTrue(BankLayout.drawerHeight(true, 4) > 20);
+                assertTrue(BankLayout.drawerHeight(true, 8) <= 20 + 72);
                 int top = BankLayout.contentTop(true);
                 int bottom = BankLayout.contentBottom(height);
                 for (int gap : new int[] {28, 36, 40}) {

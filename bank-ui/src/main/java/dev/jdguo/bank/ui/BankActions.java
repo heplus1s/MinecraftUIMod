@@ -94,6 +94,42 @@ public final class BankActions {
         return "admin-backed " + currencyId;
     }
 
+    /**
+     * Switches the issuer's regime. {@code note} is a legal anchor only for peg.
+     * Float and hard omit a bank-note anchor.
+     */
+    public static String noteSwitch(String regime, String anchor) {
+        String kind = regimeToken(regime);
+        String peg = anchorToken(anchor);
+        if (peg == null || "float".equals(kind)) {
+            return "note-switch " + kind;
+        }
+        if ("note".equals(peg) && !"peg".equals(kind)) {
+            return "note-switch " + kind;
+        }
+        return "note-switch " + kind + " " + peg;
+    }
+
+    public static String regimeToken(String regime) {
+        return switch (regime == null ? "" : regime) {
+            case "peg", "PEG", "钉住", "联系汇率制" -> "peg";
+            case "hard", "HARD", "定额兑付", "固定汇率制" -> "hard";
+            default -> "float";
+        };
+    }
+
+    public static String anchorToken(String anchor) {
+        if (anchor == null || anchor.isBlank()) {
+            return null;
+        }
+        return switch (anchor) {
+            case "diamond", "DIAMOND", "钻石" -> "diamond";
+            case "copper", "COPPER", "铜锭" -> "copper";
+            case "note", "NOTE", "银行券" -> "note";
+            default -> null;
+        };
+    }
+
     public static String close() {
         return "close";
     }
@@ -101,8 +137,8 @@ public final class BankActions {
     /** Chat text, including the leading slash and a trailing space for the name. */
     public static String noteNameCommand(String regime) {
         String kind = switch (regime == null ? "" : regime) {
-            case "peg", "PEG", "钉住" -> "peg";
-            case "hard", "HARD", "定额兑付" -> "hard";
+            case "peg", "PEG", "钉住", "联系汇率制" -> "peg";
+            case "hard", "HARD", "定额兑付", "固定汇率制" -> "hard";
             default -> "float";
         };
         return "/bank note create " + kind + " ";

@@ -7,28 +7,125 @@ import net.minecraft.text.Text;
 
 import java.util.List;
 
-/** Scrollable list. The visible line is a display name; the id is never drawn. */
+/**
+ * Option drawer. Collapsed, it shows only the current choice.
+ * Open, the rows scroll inside a frame and cannot paint outside it.
+ */
 final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWidget.Row> {
+    static final int HEADER = 20;
+    private static final int FRAME = 0xFFC8A060;
+    private static final int FILL = 0xF0101014;
+
+    private boolean expanded;
+    private int scroll;
+    private boolean toggle;
+    private boolean picked;
+
     ChoiceListWidget(MinecraftClient client, int x, int y, int width, int height) {
         super(client, width, height, y, y + height, 18);
         setLeftPos(x);
         setRenderBackground(false);
         setRenderHorizontalShadows(false);
+        setRenderSelection(false);
+    }
+
+    void setExpanded(boolean expanded) {
+        this.expanded = expanded;
+    }
+
+    boolean pollToggle() {
+        boolean value = toggle;
+        toggle = false;
+        return value;
+    }
+
+    boolean pollPick() {
+        boolean value = picked;
+        picked = false;
+        return value;
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        int bottom = expanded ? this.bottom : this.top + HEADER;
+        frame(context, this.left, this.top, this.right, bottom);
+        String label = selectedLabel();
+        if (label.isBlank()) {
+            label = "尚未选择";
+        }
+        context.drawText(client.textRenderer, label, this.left + 6, this.top + 6, 0xFFE8E8E8, false);
+        String cue = expanded ? "收起" : "展开";
+        int cueWidth = client.textRenderer.getWidth(cue);
+        context.drawText(client.textRenderer, cue, this.right - cueWidth - 6, this.top + 6, 0xFFE8D090, false);
+        if (!expanded) {
+            return;
+        }
+        int innerLeft = this.left + 1;
+        int innerTop = this.top + HEADER;
+        int innerRight = this.right - 1;
+        int innerBottom = this.bottom - 1;
+        if (innerBottom <= innerTop || innerRight <= innerLeft) {
+            return;
+        }
+        context.enableScissor(innerLeft, innerTop, innerRight, innerBottom);
         int rowWidth = Math.max(20, getRowWidth());
         int rowX = getRowLeft();
         int index = 0;
         for (Row row : children()) {
-            int rowY = getRowTop(index);
-            if (rowY + this.itemHeight > this.top && rowY < this.bottom) {
-                boolean hovered = mouseX >= this.left && mouseX < this.right && mouseY >= rowY && mouseY < rowY + this.itemHeight;
+            int rowY = innerTop + index * this.itemHeight - scroll;
+            if (rowY + this.itemHeight > innerTop && rowY < innerBottom) {
+                boolean hovered = mouseX >= innerLeft && mouseX < innerRight && mouseY >= rowY && mouseY < rowY + this.itemHeight;
                 row.render(context, index, rowY, rowX, rowWidth, this.itemHeight, mouseX, mouseY, hovered, delta);
             }
             index++;
         }
+        context.disableScissor();
+        frame(context, this.left, this.top, this.right, this.bottom);
+    }
+
+    private static void frame(DrawContext context, int left, int top, int right, int bottom) {
+        context.fill(left, top, right, bottom, FILL);
+        context.fill(left, top, right, top + 1, FRAME);
+        context.fill(left, bottom - 1, right, bottom, FRAME);
+        context.fill(left, top, left + 1, bottom, FRAME);
+        context.fill(right - 1, top, right, bottom, FRAME);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (mouseX < this.left || mouseX >= this.right || mouseY < this.top || mouseY >= this.bottom) {
+            return false;
+        }
+        if (mouseY < this.top + HEADER) {
+            toggle = true;
+            return true;
+        }
+        if (!expanded) {
+            return true;
+        }
+        int innerTop = this.top + HEADER;
+        int index = 0;
+        for (Row row : children()) {
+            int rowY = innerTop + index * this.itemHeight - scroll;
+            if (mouseY >= rowY && mouseY < rowY + this.itemHeight && rowY < this.bottom && rowY + this.itemHeight > innerTop) {
+                setSelected(row);
+                picked = true;
+                return true;
+            }
+            index++;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (!expanded || !isMouseOver(mouseX, mouseY)) {
+            return false;
+        }
+        int view = Math.max(0, (this.bottom - 1) - (this.top + HEADER));
+        int max = Math.max(0, children().size() * this.itemHeight - view);
+        scroll = Math.max(0, Math.min(max, scroll - (int) Math.round(amount * this.itemHeight)));
+        return true;
     }
 
     void setChoices(List<Choice> choices) {
@@ -93,7 +190,7 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
                            int mouseX, int mouseY, boolean hovered, float tickDelta) {
             boolean selected = getSelectedOrNull() == this;
             if (selected || hovered) {
-                context.fill(x, y, x + entryWidth, y + entryHeight, selected ? 0x663A5A38 : 0x33222222);
+                context.fill(x, y, x + entryWidth, y + entryHeight - 1, selected ? 0xAA3A5A38 : 0x66333333);
             }
             context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, x + 4, y + 4, 0xFFE8E8E8, false);
         }

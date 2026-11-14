@@ -34,6 +34,15 @@ public final class BankLayout {
     private BankLayout() {
     }
 
+    /** Collapsed drawers are one header. Open drawers add a clipped row area. */
+    public static int drawerHeight(boolean open, int rows) {
+        if (!open) {
+            return 20;
+        }
+        int count = Math.max(1, rows);
+        return 20 + Math.min(72, Math.max(36, count * 18));
+    }
+
     public static int labelWidth(String label) {
         return label.codePointCount(0, label.length()) * 12 + 18;
     }
