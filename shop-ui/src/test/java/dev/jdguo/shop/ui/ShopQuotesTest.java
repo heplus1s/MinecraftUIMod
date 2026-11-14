@@ -31,8 +31,10 @@ class ShopQuotesTest {
     void unitPriceUsesTheLiveQuoteAndDoesNotInventOne() {
         JsonObject data = sample();
 
-        assertEquals("2000", ShopQuotes.unitPrice(data, "2", "note"));
-        assertEquals("800", ShopQuotes.unitPrice(data, "2", "zhang"));
+        assertEquals("2000.0000", ShopQuotes.unitPrice(data, "2", "note"));
+        assertEquals("800.0000", ShopQuotes.unitPrice(data, "2", "zhang"));
+        assertEquals("0.2500", ShopQuotes.total("0.2500", "1"));
+        assertFalse(ShopQuotes.blocksSmallTotal("0.2500"));
         assertEquals(ShopQuotes.UNAVAILABLE, ShopQuotes.unitPrice(data, null, "note"));
         assertEquals(ShopQuotes.UNAVAILABLE, ShopQuotes.unitPrice(data, "2", "li"));
         assertEquals("buy minecraft:diamond note 1", ShopActions.buy("minecraft:diamond", "note", "1"));

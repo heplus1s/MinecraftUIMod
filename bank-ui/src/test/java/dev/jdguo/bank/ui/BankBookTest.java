@@ -44,7 +44,8 @@ class BankBookTest {
         assertTrue(ledger.contains("钻石央行储蓄：20"));
         assertTrue(ledger.contains("银行券发行准备金：1000000"));
         assertTrue(ledger.contains("银行券央行储蓄：3"));
-        assertTrue(ledger.contains("银行券存款保管：暂无数据"));
+        assertTrue(ledger.contains("铜锭存款保管：9"));
+        assertFalse(String.join("\n", ledger).contains("银行券存款保管"));
         assertTrue(ledger.contains("流通中现金（M0）：0"));
         assertTrue(BankBook.actionNotes().contains(BankBook.BACKED_EXPLANATION));
         assertFalse(String.join("\n", BankBook.actionNotes()).contains("柜台还没有这个动作"));
@@ -71,7 +72,7 @@ class BankBookTest {
 
         assertEquals("银行券兑换铜锭或钻石：已暂停", BankBook.redemption(data));
         assertEquals(BankBook.RESUME, BankBook.freezeButton(data));
-        assertTrue(BankBook.preface(data).contains("兑付能力：0.25"));
+        assertTrue(BankBook.preface(data).contains("兑付能力：0.2500"));
         assertTrue(BankBook.preface(data).contains("手续费：2%"));
         assertEquals(List.of(
                 "准备金：1000000",

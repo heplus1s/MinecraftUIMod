@@ -127,7 +127,7 @@ public final class BankSnapshot {
         if (amount == null || amount.isBlank()) {
             return "余额：暂无";
         }
-        return "余额：" + amount;
+        return "余额：" + BankHeader.figure(amount);
     }
 
     public static List<NoteRow> notes(JsonObject data) {

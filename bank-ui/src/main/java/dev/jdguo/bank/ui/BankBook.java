@@ -123,10 +123,18 @@ public final class BankBook {
         List<String> lines = new ArrayList<>();
         lines.add(field(note ? name + "发行准备金" : name + "准备金", reserve));
         lines.add(field(name + "央行储蓄", row == null ? null : row.savings()));
-        lines.add(field(name + "存款保管", row == null ? null : row.vault()));
-        lines.add(field(name + "发行额", row == null ? null : row.liability()));
-        lines.add(field(name + "已锁定准备金", row == null ? null : row.locked()));
-        lines.add(field(name + "按准备金尚可发行", row == null ? null : row.backedRoom()));
+        if (row != null && row.vault() != null) {
+            lines.add(field(name + "存款保管", row.vault()));
+        }
+        if (row != null && row.liability() != null) {
+            lines.add(field(name + "发行额", row.liability()));
+        }
+        if (row != null && row.locked() != null) {
+            lines.add(field(name + "已锁定准备金", row.locked()));
+        }
+        if (row != null && row.backedRoom() != null) {
+            lines.add(field(name + "按准备金尚可发行", row.backedRoom()));
+        }
         return lines;
     }
 

@@ -84,7 +84,22 @@ public final class ShopQuotes {
         if (perNote == null || perNote.signum() == 0) {
             return UNAVAILABLE;
         }
-        return figure(inNotes.divide(perNote, 6, RoundingMode.HALF_UP));
+        return figure(inNotes.divide(perNote, 4, RoundingMode.HALF_UP));
+    }
+
+    /** Quantity times the unit price. A total below one 银行券 is still a real total. */
+    public static String total(String unitPrice, String quantity) {
+        BigDecimal unit = parse(unitPrice);
+        BigDecimal count = parse(quantity);
+        if (unit == null || count == null) {
+            return UNAVAILABLE;
+        }
+        return figure(unit.multiply(count));
+    }
+
+    /** A positive total below one 银行券 is still payable. */
+    public static boolean blocksSmallTotal(String total) {
+        return false;
     }
 
     public static String personalId(JsonObject note, String name) {
@@ -129,11 +144,7 @@ public final class ShopQuotes {
     }
 
     static String figure(BigDecimal value) {
-        BigDecimal scaled = value.setScale(6, RoundingMode.HALF_UP).stripTrailingZeros();
-        if (scaled.scale() < 0) {
-            scaled = scaled.setScale(0);
-        }
-        return scaled.toPlainString();
+        return value.setScale(4, RoundingMode.HALF_UP).toPlainString();
     }
 
     static BigDecimal parse(String raw) {

@@ -20,7 +20,7 @@ import java.util.Map;
  * The catalog scrolls inside a frame.
  */
 public final class ShopScreen extends Screen {
-    private static final int CELL = 58;
+    private static final int CELL = 72;
 
     private final JsonObject data;
     private final Map<String, String> quantities = new HashMap<>();
@@ -90,16 +90,16 @@ public final class ShopScreen extends Screen {
             }
             ShopQuotes.Item item = items.get(index);
             String current = quantities.getOrDefault(item.id(), "1");
-            TextFieldWidget field = new TextFieldWidget(textRenderer, cellX, cellY + 36, 42, 16, Text.literal("数量"));
+            TextFieldWidget field = new TextFieldWidget(textRenderer, cellX, cellY + 48, 42, 16, Text.literal("数量"));
             field.setMaxLength(8);
             field.setText(current == null || current.isBlank() ? "1" : current);
             addDrawableChild(field);
             quantityFields.add(new QuantityBox(item.id(), field));
             String itemId = item.id();
             addDrawableChild(ButtonWidget.builder(Text.literal("买入"), button -> trade(true, itemId, field))
-                    .dimensions(cellX + 46, cellY + 34, 36, 18).build());
+                    .dimensions(cellX + 46, cellY + 48, 36, 18).build());
             addDrawableChild(ButtonWidget.builder(Text.literal("卖出"), button -> trade(false, itemId, field))
-                    .dimensions(cellX + 86, cellY + 34, 36, 18).build());
+                    .dimensions(cellX + 86, cellY + 48, 36, 18).build());
         }
     }
 
@@ -154,9 +154,22 @@ public final class ShopScreen extends Screen {
             context.drawText(textRenderer, item.name(), cellX + 20, cellY + 6, 0xFFE8E8E8, false);
             String price = ShopQuotes.unitPrice(data, item.diamondPrice(), currencyId);
             int color = ShopQuotes.UNAVAILABLE.equals(price) ? 0xFFAAAAAA : 0xFFE8D090;
-            context.drawText(textRenderer, "单价：" + price, cellX, cellY + 22, color, false);
+            String quantity = quantityOf(item.id());
+            String total = ShopQuotes.total(price, quantity);
+            context.drawText(textRenderer, "单价：" + price, cellX, cellY + 20, color, false);
+            context.drawText(textRenderer, "合计：" + total, cellX, cellY + 32, color, false);
         }
         context.disableScissor();
+    }
+
+    private String quantityOf(String itemId) {
+        for (QuantityBox box : quantityFields) {
+            if (itemId.equals(box.itemId())) {
+                String text = box.field().getText();
+                return text == null || text.isBlank() ? "1" : text.trim();
+            }
+        }
+        return quantities.getOrDefault(itemId, "1");
     }
 
     private static ItemStack icon(String id) {

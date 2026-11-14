@@ -16,6 +16,7 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
     private static final int FRAME = 0xFFC8A060;
     private static final int FILL = 0xF0101014;
 
+    private boolean drawer = true;
     private boolean expanded;
     private int scroll;
     private boolean toggle;
@@ -29,8 +30,19 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         setRenderSelection(false);
     }
 
+    void setDrawer(boolean drawer) {
+        this.drawer = drawer;
+        if (!drawer) {
+            expanded = true;
+        }
+    }
+
+    boolean isDrawer() {
+        return drawer;
+    }
+
     void setExpanded(boolean expanded) {
-        this.expanded = expanded;
+        this.expanded = !drawer || expanded;
     }
 
     boolean pollToggle() {
@@ -47,6 +59,10 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        if (!drawer) {
+            renderPanel(context, mouseX, mouseY);
+            return;
+        }
         int bottom = expanded ? this.bottom : this.top + HEADER;
         frame(context, this.left, this.top, this.right, bottom);
         String label = selectedLabel();
@@ -83,6 +99,31 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         frame(context, this.left, this.top, this.right, this.bottom);
     }
 
+    private void renderPanel(DrawContext context, int mouseX, int mouseY) {
+        frame(context, this.left, this.top, this.right, this.bottom);
+        int innerLeft = this.left + 1;
+        int innerTop = this.top + 2;
+        int innerRight = this.right - 1;
+        int innerBottom = this.bottom - 1;
+        if (innerBottom <= innerTop) {
+            return;
+        }
+        context.enableScissor(innerLeft, innerTop, innerRight, innerBottom);
+        int rowWidth = Math.max(20, getRowWidth());
+        int rowX = getRowLeft();
+        int index = 0;
+        for (Row row : children()) {
+            int rowY = innerTop + index * this.itemHeight - scroll;
+            if (rowY + this.itemHeight > innerTop && rowY < innerBottom) {
+                boolean hovered = mouseX >= innerLeft && mouseX < innerRight && mouseY >= rowY && mouseY < rowY + this.itemHeight;
+                row.render(context, index, rowY, rowX, rowWidth, this.itemHeight, mouseX, mouseY, hovered, 0);
+            }
+            index++;
+        }
+        context.disableScissor();
+        frame(context, this.left, this.top, this.right, this.bottom);
+    }
+
     private static void frame(DrawContext context, int left, int top, int right, int bottom) {
         context.fill(left, top, right, bottom, FILL);
         context.fill(left, top, right, top + 1, FRAME);
@@ -96,14 +137,14 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         if (mouseX < this.left || mouseX >= this.right || mouseY < this.top || mouseY >= this.bottom) {
             return false;
         }
-        if (mouseY < this.top + HEADER) {
+        if (drawer && mouseY < this.top + HEADER) {
             toggle = true;
             return true;
         }
-        if (!expanded) {
+        if (drawer && !expanded) {
             return true;
         }
-        int innerTop = this.top + HEADER;
+        int innerTop = drawer ? this.top + HEADER : this.top + 2;
         int index = 0;
         for (Row row : children()) {
             int rowY = innerTop + index * this.itemHeight - scroll;
@@ -119,10 +160,11 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        if (!expanded || !isMouseOver(mouseX, mouseY)) {
+        if ((drawer && !expanded) || !isMouseOver(mouseX, mouseY)) {
             return false;
         }
-        int view = Math.max(0, (this.bottom - 1) - (this.top + HEADER));
+        int origin = drawer ? this.top + HEADER : this.top + 2;
+        int view = Math.max(0, (this.bottom - 1) - origin);
         int max = Math.max(0, children().size() * this.itemHeight - view);
         scroll = Math.max(0, Math.min(max, scroll - (int) Math.round(amount * this.itemHeight)));
         return true;

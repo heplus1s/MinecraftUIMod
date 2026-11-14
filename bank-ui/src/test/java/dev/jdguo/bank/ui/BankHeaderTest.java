@@ -23,7 +23,7 @@ class BankHeaderTest {
         assertEquals(List.of(
                 "流通中现金（M0）：1",
                 "狭义货币（M1）：4",
-                "广义货币（M2）：3.5"), BankHeader.managementAggregates(data));
+                "广义货币（M2）：3.5000"), BankHeader.managementAggregates(data));
         assertFalse(String.join("\n", BankHeader.lines(data)).contains("M0"));
         assertFalse(String.join("\n", BankHeader.lines(data)).contains("兑付能力"));
         assertFalse(BankChrome.SIDEBAR);

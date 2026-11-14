@@ -41,6 +41,10 @@ public final class BankHeader {
                 "广义货币（M2）：" + figure(text(data, "m2")));
     }
 
+    /**
+     * Money to four decimal places. A whole number, including zero, drops the decimal run,
+     * so {@code 0} stays {@code 0} and {@code 0.2500} stays {@code 0.2500}.
+     */
     public static String figure(String raw) {
         if (raw == null || raw.isBlank()) {
             return "暂无数据";
@@ -49,11 +53,12 @@ public final class BankHeader {
         if (parsed == null) {
             return raw.trim();
         }
-        parsed = parsed.setScale(6, java.math.RoundingMode.HALF_UP).stripTrailingZeros();
-        if (parsed.scale() < 0) {
-            parsed = parsed.setScale(0);
+        java.math.BigDecimal scaled = parsed.setScale(4, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal whole = scaled.stripTrailingZeros();
+        if (whole.scale() <= 0) {
+            return whole.setScale(0).toPlainString();
         }
-        return parsed.toPlainString();
+        return scaled.toPlainString();
     }
 
     public static String centralRateRaw(JsonObject data) {

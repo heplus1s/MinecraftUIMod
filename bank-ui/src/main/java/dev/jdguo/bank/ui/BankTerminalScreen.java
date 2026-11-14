@@ -263,7 +263,7 @@ public final class BankTerminalScreen extends Screen {
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
         int y = contentTop() + 28;
-        y = placeDrawer("pay", centerX(listWidth()), y, listWidth(), moneyChoices(rows), payId, fieldLimit(4));
+        y = placeFixedList("pay", centerX(listWidth()), y, listWidth(), moneyChoices(rows), payId, fieldLimit(4));
         addAmountBlockAt(y, false, null);
         String name = adjustName();
         String qty = currentAmount();
@@ -333,6 +333,24 @@ public final class BankTerminalScreen extends Screen {
         }
         place(role, x, y, width, height, choices, selected);
         return y + height + gap;
+    }
+
+    /** Value adjustments keep an open framed list. Option pickers use drawers. */
+    private int placeFixedList(String role, int x, int y, int width, List<ChoiceListWidget.Choice> choices, String selected, int limit) {
+        int height = Math.min(72, Math.max(54, choices.size() * 18 + 4));
+        if (y + height + 16 > limit) {
+            height = Math.max(36, limit - 16 - y);
+        }
+        if (width < 40 || height < 16) {
+            return y + 16;
+        }
+        ChoiceListWidget widget = new ChoiceListWidget(client, x, y, width, height);
+        widget.setDrawer(false);
+        widget.setChoices(choices);
+        widget.select(selected);
+        addSelectableChild(widget);
+        placed.add(new Placed(role, widget, x, y, width, height));
+        return y + height + 16;
     }
 
     private void addAmountBlockAt(int y, boolean includeAll, String verb) {
@@ -434,6 +452,7 @@ public final class BankTerminalScreen extends Screen {
         ChoiceListWidget widget = new ChoiceListWidget(client, x, y, width, height);
         widget.setChoices(choices);
         widget.select(selected);
+        widget.setDrawer(true);
         widget.setExpanded(role.equals(openDrawer));
         addSelectableChild(widget);
         placed.add(new Placed(role, widget, x, y, width, height));
@@ -697,7 +716,7 @@ public final class BankTerminalScreen extends Screen {
         context.drawText(textRenderer, line, item.x, item.y + item.height + 2, 0xFFB7C7B0, false);
         if ("note".equals(item.role)) {
             BankSnapshot.NoteRow note = findNote(item.widget.selectedId());
-            String quote = note == null || note.price() == null ? BankRates.UNAVAILABLE : "现价：" + note.price();
+            String quote = note == null || note.price() == null ? BankRates.UNAVAILABLE : "现价：" + BankHeader.figure(note.price());
             context.drawText(textRenderer, quote, item.x, item.y + item.height + 14, note == null || note.price() == null ? 0xFFAAAAAA : 0xFFE8D090, false);
         }
     }
@@ -715,9 +734,11 @@ public final class BankTerminalScreen extends Screen {
             }
             if (item.widget.pollPick()) {
                 onList(item);
-                openDrawer = "";
-                if (!"regime".equals(item.role)) {
-                    client.execute(this::clearAndInit);
+                if (item.widget.isDrawer()) {
+                    openDrawer = "";
+                    if (!"regime".equals(item.role)) {
+                        client.execute(this::clearAndInit);
+                    }
                 }
                 return true;
             }
@@ -795,7 +816,15 @@ public final class BankTerminalScreen extends Screen {
         String quantity = QuantityTokens.token(amountText);
         switch (page) {
             case DEPOSIT -> sendIfPresent(selected("pay", payId), () -> BankActions.deposit(selected("pay", payId), quantity));
-            case WITHDRAW -> sendIfPresent(selected("pay", payId), () -> BankActions.withdraw(selected("pay", payId), quantity));
+            case WITHDRAW -> {
+                String id = selected("pay", payId);
+                String refusal = BankFunds.withdrawalRefusal(data, id, currencyName(id), quantity);
+                if (refusal != null) {
+                    notice = refusal;
+                } else {
+                    sendIfPresent(id, () -> BankActions.withdraw(id, quantity));
+                }
+            }
             case EXCHANGE -> submitExchange(quantity);
             case ISSUE -> sendIfPresent(selected("pay", payId), () -> BankActions.check(selected("pay", payId), quantity, checkSelf()));
             case REDEEM -> send(BankActions.presentHeld());
@@ -814,6 +843,11 @@ public final class BankTerminalScreen extends Screen {
         }
         if (pay.equals(receive)) {
             notice = "付出和得到不能是同一种。";
+            return;
+        }
+        String refusal = BankFunds.physicalExchangeRefusal(data, pay, currencyName(pay), quantity);
+        if (refusal != null) {
+            notice = refusal;
             return;
         }
         String command = BankExchange.command(pay, receive, quantity);

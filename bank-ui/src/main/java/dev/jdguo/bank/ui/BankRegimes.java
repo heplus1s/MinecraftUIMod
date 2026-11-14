@@ -106,20 +106,16 @@ public final class BankRegimes {
 
     public static boolean switchesKnown(JsonObject data) {
         JsonObject note = BankSnapshot.ownNote(data);
-        return note != null && note.has("switches") || data != null && data.has("switches");
+        return note != null && note.has("switches");
     }
 
     public static List<Offer> offers(JsonObject data) {
         List<Offer> rows = new ArrayList<>();
         JsonObject note = BankSnapshot.ownNote(data);
-        boolean present = note != null && note.has("switches") || data != null && data.has("switches");
-        if (!present) {
+        if (note == null || !note.has("switches")) {
             return rows;
         }
-        String keyOwner = note != null && note.has("switches") ? "own" : "root";
-        List<JsonObject> array = "own".equals(keyOwner)
-                ? arrayOf(note)
-                : arrayOf(data);
+        List<JsonObject> array = arrayOf(note);
         for (JsonObject row : array) {
             String regime = BankSnapshot.text(row, "regime");
             if (regime == null) {
