@@ -25,15 +25,24 @@ public final class BankHeader {
 
     public static List<String> lines(JsonObject data) {
         List<String> lines = new ArrayList<>();
-        lines.add("M0 " + fixed6(text(data, "m0")));
-        lines.add("M1 " + fixed6(text(data, "m1")));
-        lines.add("M2 " + fixed6(text(data, "m2")));
-        lines.add(rateLine(rateValue(data)));
+        lines.add(rateLine(centralRateRaw(data)));
         String status = text(data, "status");
         if (showStatus(status)) {
             lines.add(status);
         }
         return lines;
+    }
+
+    /** M0, M1, and M2 belong only on the central-bank management page. */
+    public static List<String> managementAggregates(JsonObject data) {
+        return List.of(
+                "M0 " + fixed6(text(data, "m0")),
+                "M1 " + fixed6(text(data, "m1")),
+                "M2 " + fixed6(text(data, "m2")));
+    }
+
+    public static String centralRateRaw(JsonObject data) {
+        return rateValue(data);
     }
 
     /**
@@ -57,7 +66,7 @@ public final class BankHeader {
             }
         }
         List<String> kept = new ArrayList<>();
-        kept.add(rate == null ? "汇率 —" : rate);
+        kept.add(rate == null ? "汇率  暂无牌价" : rate);
         if (status != null) {
             kept.add(status);
         }
@@ -97,15 +106,15 @@ public final class BankHeader {
     private static String rateLine(String value) {
         String shown = fixed6(value);
         if ("—".equals(shown)) {
-            return "汇率 —";
+            return "汇率  暂无牌价";
         }
-        return "汇率 " + shown + " 铜/钻";
+        return "汇率  " + shown + " 铜/钻";
     }
 
     private static String normalizeRate(String line) {
         Matcher matcher = NUMBER.matcher(line);
         if (!matcher.find()) {
-            return "汇率 —";
+            return "汇率  暂无牌价";
         }
         return rateLine(matcher.group());
     }

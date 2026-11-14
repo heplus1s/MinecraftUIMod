@@ -10,7 +10,7 @@ import java.util.List;
 
 /** Reads the optional UI snapshot. Missing fields stay missing; nothing is invented. */
 public final class BankSnapshot {
-    public record MoneyRow(String id, String name, String amount) {
+    public record MoneyRow(String id, String name, String amount, String rate) {
     }
 
     public record NoteRow(String id, String name, String balance, String price) {
@@ -61,9 +61,31 @@ public final class BankSnapshot {
             if (id == null || name == null) {
                 continue;
             }
-            rows.add(new MoneyRow(id, name, amount(row)));
+            rows.add(new MoneyRow(id, name, amount(row), rate(data, row, id, name)));
         }
         return rows;
+    }
+
+    public static List<MoneyRow> hardCurrencies(JsonObject data) {
+        List<MoneyRow> rows = new ArrayList<>();
+        for (MoneyRow row : currencies(data)) {
+            if (isHard(row)) {
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    public static boolean isHard(MoneyRow row) {
+        return "copper".equals(row.id()) || "diamond".equals(row.id()) || "note".equals(row.id())
+                || "铜锭".equals(row.name()) || "钻石".equals(row.name()) || "银行券".equals(row.name());
+    }
+
+    public static String balancePhrase(String amount) {
+        if (amount == null || amount.isBlank()) {
+            return "余额：暂无";
+        }
+        return "余额：" + amount;
     }
 
     public static List<NoteRow> notes(JsonObject data) {
@@ -134,6 +156,21 @@ public final class BankSnapshot {
         } catch (NumberFormatException exception) {
             return "0".equals(raw.trim());
         }
+    }
+
+    private static String rate(JsonObject root, JsonObject row, String id, String name) {
+        String direct = first(row, "rate", "unitsPer", "unitsPerDiamond", "price");
+        if (direct != null) {
+            return direct;
+        }
+        for (JsonObject quoted : array(root, "rates")) {
+            String quotedId = text(quoted, "id");
+            String quotedName = text(quoted, "name");
+            if ((quotedId != null && quotedId.equals(id)) || (quotedName != null && quotedName.equals(name))) {
+                return first(quoted, "rate", "value", "price", "amount");
+            }
+        }
+        return null;
     }
 
     private static String amount(JsonObject row) {
