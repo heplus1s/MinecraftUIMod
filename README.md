@@ -27,11 +27,11 @@ This repository is the only home for the optional client screens of these Fabric
 
 两个界面都没有自定义物品或方块，也不注册会改变原版握手的内容。没装界面的人和原版客户端不受影响。
 
-以后如果有商店或市场界面，也会放在这个仓库。`shop-ui` 和 `market-ui` 两个文件夹先留着，现在没有玩法，也不会打出 jar。
+商店界面在 `shop-ui`，打出来的是 `shopmod-ui-1.0.0.jar`。市场界面的文件夹 `market-ui` 还留着，现在不打 jar。
 
 The dedicated server only needs the core `bankmod` and `landmod` jars, plus Fabric Loader and Fabric API. Players can join with a vanilla client. Without the UI jars, the bank stays a chest screen and the land commands still work.
 
-People who want the screens put `bankmod-ui-1.0.0.jar` and `landmod-ui-1.0.0.jar` in their own client `mods` folder. These jars add no custom items or blocks. `shop-ui` and `market-ui` are reserved folders for later screens. They are not built yet.
+People who want the screens put `bankmod-ui-1.0.0.jar`, `landmod-ui-1.0.0.jar`, or `shopmod-ui-1.0.0.jar` in their own client `mods` folder. These jars add no custom items or blocks. `market-ui` is still reserved and is not built.
 
 ## 银行界面
 

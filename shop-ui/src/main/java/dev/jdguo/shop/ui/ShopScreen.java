@@ -1,0 +1,226 @@
+package dev.jdguo.shop.ui;
+
+import com.google.gson.JsonObject;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Optional shop screen. The currency drawer never offers copper or diamonds.
+ * The catalog scrolls inside a frame.
+ */
+public final class ShopScreen extends Screen {
+    private static final int CELL = 58;
+
+    private final JsonObject data;
+    private final Map<String, String> quantities = new HashMap<>();
+    private final List<QuantityBox> quantityFields = new ArrayList<>();
+    private ShopDrawer drawer;
+    private boolean currencyOpen;
+    private String currencyId = ShopQuotes.NOTE;
+    private int scroll;
+    private int frameX;
+    private int frameY;
+    private int frameW;
+    private int frameH;
+    private String notice = "";
+
+    public ShopScreen(JsonObject data) {
+        super(Text.literal("商店"));
+        this.data = data == null ? new JsonObject() : data;
+    }
+
+    void show(JsonObject next) {
+        captureQuantities();
+        client.setScreen(new ShopScreen(next == null ? new JsonObject() : next, currencyId, currencyOpen, scroll, quantities));
+    }
+
+    ShopScreen(JsonObject data, String currencyId, boolean currencyOpen, int scroll, Map<String, String> quantities) {
+        super(Text.literal("商店"));
+        this.data = data == null ? new JsonObject() : data;
+        this.currencyId = currencyId == null ? ShopQuotes.NOTE : currencyId;
+        this.currencyOpen = currencyOpen;
+        this.scroll = Math.max(0, scroll);
+        this.quantities.putAll(quantities);
+    }
+
+    @Override
+    protected void init() {
+        quantityFields.clear();
+        List<ShopQuotes.Pay> pays = ShopQuotes.payCurrencies(data);
+        if (pays.stream().noneMatch(pay -> pay.id().equals(currencyId))) {
+            currencyId = ShopQuotes.NOTE;
+        }
+        int drawerWidth = Math.min(220, this.width - 80);
+        int drawerHeight = currencyOpen ? 20 + Math.min(72, Math.max(36, pays.size() * 18)) : 20;
+        drawer = new ShopDrawer(client, 8, 8, drawerWidth, drawerHeight);
+        drawer.setExpanded(currencyOpen);
+        drawer.setChoices(pays.stream().map(pay -> new ShopDrawer.Choice(pay.id(), pay.label())).toList(), currencyId);
+        addSelectableChild(drawer);
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("关闭"), button -> close())
+                .dimensions(this.width - 68, this.height - 28, 60, 18).build());
+
+        frameX = 8;
+        frameY = 8 + drawerHeight + 8;
+        frameW = this.width - 16;
+        frameH = Math.max(CELL, this.height - frameY - 36);
+        List<ShopQuotes.Item> items = ShopQuotes.items(data);
+        int columns = ShopQuotes.columns(frameW);
+        int content = ((items.size() + columns - 1) / columns) * CELL;
+        scroll = Math.min(scroll, Math.max(0, content - frameH));
+        int cellW = Math.max(40, (frameW - 8) / columns);
+        for (int index = 0; index < items.size(); index++) {
+            int col = index % columns;
+            int row = index / columns;
+            int cellX = frameX + 4 + col * cellW;
+            int cellY = frameY + 4 + row * CELL - scroll;
+            if (cellY < frameY || cellY + CELL > frameY + frameH || cellX + 122 > frameX + frameW - 4) {
+                continue;
+            }
+            ShopQuotes.Item item = items.get(index);
+            String current = quantities.getOrDefault(item.id(), "1");
+            TextFieldWidget field = new TextFieldWidget(textRenderer, cellX, cellY + 36, 42, 16, Text.literal("数量"));
+            field.setMaxLength(8);
+            field.setText(current == null || current.isBlank() ? "1" : current);
+            addDrawableChild(field);
+            quantityFields.add(new QuantityBox(item.id(), field));
+            String itemId = item.id();
+            addDrawableChild(ButtonWidget.builder(Text.literal("买入"), button -> trade(true, itemId, field))
+                    .dimensions(cellX + 46, cellY + 34, 36, 18).build());
+            addDrawableChild(ButtonWidget.builder(Text.literal("卖出"), button -> trade(false, itemId, field))
+                    .dimensions(cellX + 86, cellY + 34, 36, 18).build());
+        }
+    }
+
+    private void trade(boolean buy, String itemId, TextFieldWidget field) {
+        String quantity = field.getText() == null ? "" : field.getText().trim();
+        quantities.put(itemId, quantity);
+        if (quantity.isEmpty() || !quantity.chars().allMatch(Character::isDigit) || "0".equals(quantity)) {
+            notice = "请填写购买或出售的数量。";
+            return;
+        }
+        notice = "";
+        String currency = drawer == null ? currencyId : drawer.selectedId();
+        ShopUiClient.send(buy
+                ? ShopActions.buy(itemId, currency, quantity)
+                : ShopActions.sell(itemId, currency, quantity));
+    }
+
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        renderBackground(context);
+        int titleX = drawer == null ? 8 : 8 + Math.min(220, this.width - 80) + 12;
+        context.drawText(textRenderer, "商店", titleX, 14, 0xFFD0B060, false);
+        drawCatalog(context);
+        super.render(context, mouseX, mouseY, delta);
+        if (drawer != null) {
+            drawer.render(context, mouseX, mouseY, delta);
+        }
+        frame(context, frameX, frameY, frameX + frameW, frameY + frameH);
+        if (!notice.isBlank()) {
+            context.drawText(textRenderer, notice, 8, this.height - 44, 0xFFFFCC88, false);
+        }
+    }
+
+    private void drawCatalog(DrawContext context) {
+        List<ShopQuotes.Item> items = ShopQuotes.items(data);
+        int columns = ShopQuotes.columns(frameW);
+        int cellW = Math.max(40, (frameW - 8) / columns);
+        context.enableScissor(frameX + 1, frameY + 1, frameX + frameW - 1, frameY + frameH - 1);
+        if (items.isEmpty()) {
+            context.drawText(textRenderer, "柜台还没有商品。", frameX + 8, frameY + 8, 0xFFAAAAAA, false);
+        }
+        for (int index = 0; index < items.size(); index++) {
+            int col = index % columns;
+            int row = index / columns;
+            int cellX = frameX + 4 + col * cellW;
+            int cellY = frameY + 4 + row * CELL - scroll;
+            if (cellY + CELL < frameY || cellY > frameY + frameH) {
+                continue;
+            }
+            ShopQuotes.Item item = items.get(index);
+            context.drawItem(icon(item.id()), cellX, cellY + 2);
+            context.drawText(textRenderer, item.name(), cellX + 20, cellY + 6, 0xFFE8E8E8, false);
+            String price = ShopQuotes.unitPrice(data, item.diamondPrice(), currencyId);
+            int color = ShopQuotes.UNAVAILABLE.equals(price) ? 0xFFAAAAAA : 0xFFE8D090;
+            context.drawText(textRenderer, "单价：" + price, cellX, cellY + 22, color, false);
+        }
+        context.disableScissor();
+    }
+
+    private static ItemStack icon(String id) {
+        Identifier identifier = Identifier.tryParse(id);
+        if (identifier == null || !Registries.ITEM.containsId(identifier)) {
+            return ItemStack.EMPTY;
+        }
+        return new ItemStack(Registries.ITEM.get(identifier));
+    }
+
+    private static void frame(DrawContext context, int left, int top, int right, int bottom) {
+        context.fill(left, top, right, top + 1, 0xFFC8A060);
+        context.fill(left, bottom - 1, right, bottom, 0xFFC8A060);
+        context.fill(left, top, left + 1, bottom, 0xFFC8A060);
+        context.fill(right - 1, top, right, bottom, 0xFFC8A060);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (drawer != null && drawer.isMouseOver(mouseX, mouseY) && drawer.mouseClicked(mouseX, mouseY, button)) {
+            if (drawer.pollToggle()) {
+                currencyOpen = !currencyOpen;
+                client.execute(this::clearAndInit);
+                return true;
+            }
+            if (drawer.pollPick()) {
+                currencyId = drawer.selectedId();
+                currencyOpen = false;
+                client.execute(this::clearAndInit);
+                return true;
+            }
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (drawer != null && drawer.mouseScrolled(mouseX, mouseY, amount)) {
+            return true;
+        }
+        if (mouseX >= frameX && mouseX < frameX + frameW && mouseY >= frameY && mouseY < frameY + frameH) {
+            captureQuantities();
+            int columns = ShopQuotes.columns(frameW);
+            int rows = (ShopQuotes.items(data).size() + columns - 1) / columns;
+            int max = Math.max(0, rows * CELL - frameH);
+            scroll = Math.max(0, Math.min(max, scroll - (int) Math.round(amount * CELL)));
+            client.execute(this::clearAndInit);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, amount);
+    }
+
+    private void captureQuantities() {
+        for (QuantityBox box : quantityFields) {
+            quantities.put(box.itemId, box.field.getText());
+        }
+    }
+
+    private record QuantityBox(String itemId, TextFieldWidget field) {
+    }
+
+    @Override
+    public boolean shouldPause() {
+        return false;
+    }
+}

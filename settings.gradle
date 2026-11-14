@@ -13,5 +13,6 @@ rootProject.name = "minecraft-ui-mod"
 
 include "bank-ui"
 include "land-ui"
+include "shop-ui"
 
-// shop-ui and market-ui are reserved folders. They are not Gradle modules until those packs exist.
+// market-ui stays a reserved folder until that pack exists.
