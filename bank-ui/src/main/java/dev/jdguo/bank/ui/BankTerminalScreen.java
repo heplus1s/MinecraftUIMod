@@ -262,22 +262,28 @@ public final class BankTerminalScreen extends Screen {
         }
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
-        int y = contentTop() + 28;
-        y = placeFixedList("pay", centerX(listWidth()), y, listWidth(), moneyChoices(rows), payId, fieldLimit(4));
-        addAmountBlockAt(y, false, null);
+        int buttonY = BankLayout.contentBottom(this.height) - 22 * 4;
+        int fieldY = buttonY - 24;
+        pageBand = new BankLayout.Band(0, 0, fieldY, fieldY, buttonY);
+        int y = contentTop() + 40;
+        placeFixedList("pay", centerX(listWidth()), y, listWidth(), moneyChoices(rows), payId, fieldY - 14);
+        int fieldWidth = Math.min(160, Math.max(80, mainWidth() / 2));
+        amount = new TextFieldWidget(textRenderer, centerX(fieldWidth), fieldY, fieldWidth, 16, Text.literal("数值管理"));
+        amount.setMaxLength(32);
+        amount.setText(amountText == null || amountText.isBlank() ? "1" : amountText);
+        addDrawableChild(amount);
         String name = adjustName();
         String qty = currentAmount();
         int x = mainLeft();
         int width = Math.max(40, mainWidth());
-        int buttonY = pageBand.quickY() + 22;
-        addDrawableChild(ButtonWidget.builder(Text.literal(BankBook.freezeButton(data)), button -> send(BankActions.adminFreeze()))
-                .dimensions(x, buttonY, width, 18).build());
-        unbackedButton = ButtonWidget.builder(Text.literal(adjustLabel("无准备金增发", qty, name)), button ->
-                        sendAmount(quantity -> BankActions.adminUnbacked(selected("pay", payId), quantity)))
+        unbackedButton = ButtonWidget.builder(Text.literal(plusLabel(qty, name)), button -> adjustBy(true))
+                .dimensions(x, buttonY, width, 18).build();
+        retireButton = ButtonWidget.builder(Text.literal(minusLabel(qty, name)), button -> adjustBy(false))
                 .dimensions(x, buttonY + 22, width, 18).build();
-        retireButton = ButtonWidget.builder(Text.literal(adjustLabel("从流通中注销", qty, name)), button ->
-                        sendAmount(quantity -> BankActions.adminRetire(selected("pay", payId), quantity)))
-                .dimensions(x, buttonY + 44, width, 18).build();
+        addDrawableChild(unbackedButton);
+        addDrawableChild(retireButton);
+        addDrawableChild(ButtonWidget.builder(Text.literal(BankBook.freezeButton(data)), button -> send(BankActions.adminFreeze()))
+                .dimensions(x, buttonY + 44, width, 18).build());
         backedButton = ButtonWidget.builder(Text.literal("按准备金满额发行 " + name), button -> {
             String currency = selected("pay", payId);
             if (currency == null || currency.isBlank()) {
@@ -286,10 +292,41 @@ public final class BankTerminalScreen extends Screen {
             }
             send(BankActions.adminBacked(currency));
         }).dimensions(x, buttonY + 66, width, 18).build();
-        addDrawableChild(unbackedButton);
-        addDrawableChild(retireButton);
         addDrawableChild(backedButton);
         addDrawableChild(textButton("返回总账", mainRight() - buttonWidth("返回总账"), contentTop(), () -> open(Page.MANAGEMENT)));
+    }
+
+    private void adjustBy(boolean increase) {
+        captureSelections();
+        String currency = selected("pay", payId);
+        if (currency == null || currency.isBlank()) {
+            notice = "请先在列表中选择一项。";
+            return;
+        }
+        String quantity = currentAmount();
+        if (!typedAmount(quantity)) {
+            notice = "请在数值管理里输入要增加或减少的数量。";
+            return;
+        }
+        notice = "";
+        send(increase
+                ? BankActions.adminUnbacked(currency, quantity)
+                : BankActions.adminRetire(currency, quantity));
+    }
+
+    private static boolean typedAmount(String quantity) {
+        if (quantity == null || quantity.isBlank() || "all".equalsIgnoreCase(quantity) || "全部".equals(quantity)) {
+            return false;
+        }
+        return BankRates.parse(quantity) != null && BankRates.parse(quantity).signum() > 0;
+    }
+
+    private static String plusLabel(String quantity, String currency) {
+        return "＋ 无准备金增发 " + quantity + " " + currency;
+    }
+
+    private static String minusLabel(String quantity, String currency) {
+        return "－ 从流通中注销 " + quantity + " " + currency;
     }
 
     private void initIssuanceSwitch() {
@@ -365,10 +402,6 @@ public final class BankTerminalScreen extends Screen {
         }
         pageBand = new BankLayout.Band(0, 0, fieldY, quickY, actionY);
         addAmountBlock(includeAll, verb);
-    }
-
-    private static String adjustLabel(String verb, String quantity, String currency) {
-        return verb + " " + quantity + " " + currency;
     }
 
     private String adjustName() {
@@ -512,7 +545,12 @@ public final class BankTerminalScreen extends Screen {
             case ISSUANCE -> drawIssuance(context);
             case ISSUANCE_SWITCH -> drawIssuanceSwitch(context);
             case MANAGEMENT -> drawManagement(context);
-            case MANAGEMENT_ADJUST -> drawHeading(context, "货币调整", "准备金和央行储蓄在总账里逐项列出，不随这里的选择改变。");
+            case MANAGEMENT_ADJUST -> {
+                drawHeading(context, "货币调整", "准备金和央行储蓄在总账里逐项列出，不随这里的选择改变。");
+                if (pageBand != null) {
+                    context.drawText(textRenderer, "数值管理", mainLeft(), pageBand.fieldY() - 12, 0xFFE8D090, false);
+                }
+            }
             case CONFIRM -> context.drawText(textRenderer,
                     "确认后才会作废「" + safe(BankSnapshot.text(data, "personal")) + "」。返回则账目不变。",
                     mainLeft(), contentTop() + 8, 0xFFFF7777, false);
@@ -680,10 +718,10 @@ public final class BankTerminalScreen extends Screen {
         String name = adjustName();
         String qty = currentAmount();
         if (unbackedButton != null) {
-            unbackedButton.setMessage(Text.literal(adjustLabel("无准备金增发", qty, name)));
+            unbackedButton.setMessage(Text.literal(plusLabel(qty, name)));
         }
         if (retireButton != null) {
-            retireButton.setMessage(Text.literal(adjustLabel("从流通中注销", qty, name)));
+            retireButton.setMessage(Text.literal(minusLabel(qty, name)));
         }
         if (backedButton != null) {
             backedButton.setMessage(Text.literal("按准备金满额发行 " + name));
