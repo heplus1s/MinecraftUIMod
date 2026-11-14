@@ -13,6 +13,9 @@ class BankActionsTest {
         assertEquals("check note 64 bearer", BankActions.check("note", "64", false));
         assertEquals("check note 64 self", BankActions.check("note", "64", true));
         assertEquals("deposit-held", BankActions.presentHeld());
+        assertEquals("兑付手里拿着的那一张汇票。请把要兑付的汇票拿在主手。一次只兑付这一张，不会扫描背包，也不会存入铜锭、钻石或银行券。",
+                BankActions.MAIN_HAND_BILL);
+        assertEquals("确认兑付手里拿着的那一张汇票", BankActions.MAIN_HAND_BUTTON);
         assertEquals("note-buy 张三 1", BankActions.noteBuy("张三", "1"));
         assertEquals("note-sell 张三 5", BankActions.noteSell("张三", "5"));
         assertEquals("note-swap 张三 李四 10", BankActions.noteSwap("张三", "李四", "10"));

@@ -104,6 +104,81 @@ public final class BankLayout {
         return boxes;
     }
 
+    /**
+     * Puts the scrollable list in the gap above the amount field.
+     * The list always keeps a visible height and ends before the field.
+     */
+    public record Band(int listTop, int listHeight, int fieldY, int quickY, int actionY) {
+        public int listBottom() {
+            return listTop + listHeight;
+        }
+
+        public boolean separated() {
+            return listHeight >= 18 && listBottom() + 8 <= fieldY && fieldY + 16 <= quickY && quickY + 18 <= actionY;
+        }
+    }
+
+    /** Currency list on the left of the main area, ledger lines beside it, amount controls below both. */
+    public record ManagementPane(int listTop, int listHeight, int bookY, int fieldY, int quickY, int actionY) {
+        public boolean bookBesideList() {
+            return bookY == listTop;
+        }
+
+        public boolean separated() {
+            return listHeight >= 18 && listTop + listHeight + 8 <= fieldY && fieldY + 16 <= quickY && quickY + 18 <= actionY;
+        }
+    }
+
+    public static Band band(int contentTop, int contentBottom, int titleGap) {
+        int listTop = contentTop + Math.max(14, titleGap);
+        int actionY = contentBottom - 18;
+        int quickY = actionY - 22;
+        int fieldY = quickY - 20;
+        int listHeight = fieldY - 12 - listTop;
+        if (listHeight < 18) {
+            listHeight = 18;
+            fieldY = listTop + listHeight + 12;
+            quickY = fieldY + 20;
+            actionY = quickY + 22;
+            if (actionY + 18 > contentBottom) {
+                int shift = actionY + 18 - contentBottom;
+                int lift = Math.min(shift, Math.max(0, listTop - contentTop - 14));
+                listTop -= lift;
+                fieldY -= lift;
+                quickY -= lift;
+                actionY -= lift;
+                if (actionY + 18 > contentBottom) {
+                    int extra = actionY + 18 - contentBottom;
+                    actionY -= extra;
+                    quickY -= extra;
+                    fieldY -= extra;
+                    listHeight = Math.max(18, fieldY - 8 - listTop);
+                }
+            }
+        }
+        return new Band(listTop, listHeight, fieldY, quickY, actionY);
+    }
+
+    public static ManagementPane management(int contentTop, int contentBottom, int prefaceLines) {
+        int listTop = contentTop + 16 + Math.max(0, prefaceLines) * 12;
+        int actionY = contentBottom - 18;
+        int quickY = actionY - 22;
+        int fieldY = quickY - 20;
+        int listHeight = fieldY - 12 - listTop;
+        if (listHeight < 36) {
+            int liftedTop = Math.max(contentTop + 14, fieldY - 8 - 36);
+            listTop = Math.min(listTop, liftedTop);
+            listHeight = fieldY - 8 - listTop;
+        }
+        if (listHeight > 108) {
+            listHeight = 108;
+        }
+        if (listHeight < 18) {
+            listHeight = 18;
+        }
+        return new ManagementPane(listTop, listHeight, listTop, fieldY, quickY, actionY);
+    }
+
     public static List<Box> row(int x, int y, List<String> labels) {
         List<Box> boxes = new ArrayList<>();
         int cursor = x;

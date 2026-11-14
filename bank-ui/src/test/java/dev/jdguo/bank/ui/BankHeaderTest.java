@@ -20,7 +20,10 @@ class BankHeaderTest {
         data.addProperty("copperPerDiamond", "1000");
 
         assertEquals(List.of("汇率  1000.000000 铜/钻", "兑付正常"), BankHeader.lines(data));
-        assertEquals(List.of("M0 1.000000", "M1 4.000000", "M2 3.500000"), BankHeader.managementAggregates(data));
+        assertEquals(List.of(
+                "流通中现金（M0）：1",
+                "狭义货币（M1）：4",
+                "广义货币（M2）：3.5"), BankHeader.managementAggregates(data));
         assertFalse(String.join("\n", BankHeader.lines(data)).contains("M0"));
         assertFalse(String.join("\n", BankHeader.lines(data)).contains("兑付能力"));
         assertFalse(BankChrome.SIDEBAR);

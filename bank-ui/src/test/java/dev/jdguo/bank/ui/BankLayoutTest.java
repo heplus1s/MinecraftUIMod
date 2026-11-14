@@ -39,6 +39,19 @@ class BankLayoutTest {
                 assertEquals("兑付汇票", tabs.get(5).label());
                 assertEquals("个人银行券交易", tabs.get(6).label());
                 assertTrue(manage.width() >= BankLayout.labelWidth(BankChrome.MANAGEMENT));
+                int top = BankLayout.contentTop(true);
+                int bottom = BankLayout.contentBottom(height);
+                for (int gap : new int[] {28, 36, 40}) {
+                    BankLayout.Band band = BankLayout.band(top, bottom, gap);
+                    assertTrue(band.separated(), width + "x" + height + " gap " + gap + " " + band);
+                    assertTrue(band.listTop() >= top);
+                    assertTrue(band.actionY() + 18 <= bottom);
+                    assertTrue(BankLayout.mainLeft(width) > BankLayout.columnRight(width));
+                }
+                BankLayout.ManagementPane pane = BankLayout.management(top, bottom, 6);
+                assertTrue(pane.separated(), width + "x" + height + " management " + pane);
+                assertTrue(pane.bookBesideList());
+                assertTrue(pane.actionY() + 18 <= bottom);
             }
         }
     }

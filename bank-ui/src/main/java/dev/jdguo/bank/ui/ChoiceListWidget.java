@@ -16,6 +16,21 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         setRenderHorizontalShadows(false);
     }
 
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        int rowWidth = Math.max(20, getRowWidth());
+        int rowX = getRowLeft();
+        int index = 0;
+        for (Row row : children()) {
+            int rowY = getRowTop(index);
+            if (rowY + this.itemHeight > this.top && rowY < this.bottom) {
+                boolean hovered = mouseX >= this.left && mouseX < this.right && mouseY >= rowY && mouseY < rowY + this.itemHeight;
+                row.render(context, index, rowY, rowX, rowWidth, this.itemHeight, mouseX, mouseY, hovered, delta);
+            }
+            index++;
+        }
+    }
+
     void setChoices(List<Choice> choices) {
         String keep = selectedId();
         clearEntries();

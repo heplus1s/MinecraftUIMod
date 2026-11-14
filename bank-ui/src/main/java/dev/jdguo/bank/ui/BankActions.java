@@ -25,7 +25,10 @@ public final class BankActions {
         return "check " + currencyId + " " + quantity + (selfOnly ? " self" : " bearer");
     }
 
-    /** Redeems drafts in the inventory. The core also deposits commodities and bank notes it finds. */
+    public static final String MAIN_HAND_BILL = "兑付手里拿着的那一张汇票。请把要兑付的汇票拿在主手。一次只兑付这一张，不会扫描背包，也不会存入铜锭、钻石或银行券。";
+    public static final String MAIN_HAND_BUTTON = "确认兑付手里拿着的那一张汇票";
+
+    /** Redeems the bill in the main hand. The core no longer scans the backpack. */
     public static String presentHeld() {
         return "deposit-held";
     }

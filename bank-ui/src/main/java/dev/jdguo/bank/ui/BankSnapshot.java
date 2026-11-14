@@ -16,7 +16,15 @@ public final class BankSnapshot {
     public record NoteRow(String id, String name, String balance, String price) {
     }
 
-    public record CentralRow(String name, String savings, String reserve, String vault) {
+    public record CentralRow(
+            String id,
+            String name,
+            String savings,
+            String reserve,
+            String vault,
+            String liability,
+            String locked,
+            String backedRoom) {
     }
 
     public record InstitutionRow(String name, String detail) {
@@ -47,6 +55,16 @@ public final class BankSnapshot {
         }
         String value = data.get(key).getAsString();
         return value == null || value.isBlank() ? null : value;
+    }
+
+    public static Boolean frozen(JsonObject data) {
+        if (data == null || !data.has("frozen") || !data.get("frozen").isJsonPrimitive()) {
+            return null;
+        }
+        if (!data.get("frozen").getAsJsonPrimitive().isBoolean()) {
+            return null;
+        }
+        return data.get("frozen").getAsBoolean();
     }
 
     public static boolean has(JsonObject data, String key) {
@@ -118,7 +136,15 @@ public final class BankSnapshot {
             if (name == null) {
                 continue;
             }
-            rows.add(new CentralRow(name, text(row, "savings"), text(row, "reserve"), text(row, "vault")));
+            rows.add(new CentralRow(
+                    text(row, "id"),
+                    name,
+                    text(row, "savings"),
+                    text(row, "reserve"),
+                    text(row, "vault"),
+                    text(row, "liability"),
+                    text(row, "locked"),
+                    text(row, "backedRoom")));
         }
         return rows;
     }

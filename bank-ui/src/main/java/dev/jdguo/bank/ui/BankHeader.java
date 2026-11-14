@@ -33,12 +33,27 @@ public final class BankHeader {
         return lines;
     }
 
-    /** M0, M1, and M2 belong only on the central-bank management page. */
+    /** M0, M1, and M2 belong only on the central-bank management page. Integers drop a trailing decimal run. */
     public static List<String> managementAggregates(JsonObject data) {
         return List.of(
-                "M0 " + fixed6(text(data, "m0")),
-                "M1 " + fixed6(text(data, "m1")),
-                "M2 " + fixed6(text(data, "m2")));
+                "流通中现金（M0）：" + figure(text(data, "m0")),
+                "狭义货币（M1）：" + figure(text(data, "m1")),
+                "广义货币（M2）：" + figure(text(data, "m2")));
+    }
+
+    public static String figure(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "暂无数据";
+        }
+        java.math.BigDecimal parsed = BankRates.parse(raw);
+        if (parsed == null) {
+            return raw.trim();
+        }
+        parsed = parsed.setScale(6, java.math.RoundingMode.HALF_UP).stripTrailingZeros();
+        if (parsed.scale() < 0) {
+            parsed = parsed.setScale(0);
+        }
+        return parsed.toPlainString();
     }
 
     public static String centralRateRaw(JsonObject data) {
