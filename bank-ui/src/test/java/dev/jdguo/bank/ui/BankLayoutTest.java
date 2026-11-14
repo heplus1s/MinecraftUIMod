@@ -33,9 +33,12 @@ class BankLayoutTest {
                 assertTrue(manage.x() >= BankLayout.mainLeft(width));
                 assertTrue(BankLayout.mainLeft(width) > BankLayout.columnRight(width));
                 assertTrue(BankLayout.contentBottom(height) > BankLayout.contentTop(true));
-                assertEquals(6, tabs.size());
+                assertEquals(7, tabs.size());
                 assertEquals("硬通货兑换", tabs.get(3).label());
-                assertEquals("个人银行券交易", tabs.get(5).label());
+                assertEquals("开立汇票", tabs.get(4).label());
+                assertEquals("兑付汇票", tabs.get(5).label());
+                assertEquals("个人银行券交易", tabs.get(6).label());
+                assertTrue(manage.width() >= BankLayout.labelWidth(BankChrome.MANAGEMENT));
             }
         }
     }

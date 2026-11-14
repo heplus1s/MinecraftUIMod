@@ -17,7 +17,7 @@ import java.util.List;
  */
 public final class BankTerminalScreen extends Screen {
     private enum Page {
-        SAVINGS, DEPOSIT, WITHDRAW, EXCHANGE, CHECKS, MARKET, ISSUANCE, MANAGEMENT, CONFIRM
+        SAVINGS, DEPOSIT, WITHDRAW, EXCHANGE, ISSUE, REDEEM, MARKET, ISSUANCE, MANAGEMENT, CONFIRM
     }
 
     private record Placed(String role, ChoiceListWidget widget, int x, int y, int width, int height) {
@@ -30,12 +30,10 @@ public final class BankTerminalScreen extends Screen {
     private String noteName = "";
     private String otherNote = "";
     private String marketMode = "buy";
-    private String checkView = "issue";
     private boolean payeeSelf;
     private String amountText = "1";
     private String notice = "";
     private boolean closing;
-    private boolean redeemButtonReady;
     private TextFieldWidget amount;
     private final List<Placed> placed = new ArrayList<>();
 
@@ -59,7 +57,6 @@ public final class BankTerminalScreen extends Screen {
     @Override
     protected void init() {
         amount = null;
-        redeemButtonReady = false;
         placed.clear();
         boolean admin = BankSnapshot.admin(data);
         if (page == Page.CONFIRM) {
@@ -73,7 +70,8 @@ public final class BankTerminalScreen extends Screen {
             case DEPOSIT -> initMoney(BankSnapshot.currencies(data), true, "确认存入");
             case WITHDRAW -> initMoney(BankSnapshot.currencies(data), true, "确认取出");
             case EXCHANGE -> initExchange();
-            case CHECKS -> initChecks();
+            case ISSUE -> initIssue();
+            case REDEEM -> initRedeem();
             case MARKET -> initMarket();
             case ISSUANCE -> initIssuance();
             case MANAGEMENT -> initManagement();
@@ -97,9 +95,12 @@ public final class BankTerminalScreen extends Screen {
         if (!admin) {
             return;
         }
-        int manageWidth = buttonWidth(BankChrome.MANAGEMENT);
+        int manageWidth = Math.max(120, buttonWidth(BankChrome.MANAGEMENT));
         int y = BankLayout.EDGE + BankLayout.BUTTON_HEIGHT + BankLayout.TOP_GAP;
         BankLayout.Box manage = BankLayout.topRight(this.width, y, BankChrome.MANAGEMENT, manageWidth);
+        if (manage.x() < mainLeft()) {
+            manage = new BankLayout.Box(manage.label(), mainLeft(), manage.y(), manage.width(), manage.height());
+        }
         addDrawableChild(ButtonWidget.builder(Text.literal(manage.label()), button -> open(Page.MANAGEMENT))
                 .dimensions(manage.x(), manage.y(), manage.width(), manage.height()).build());
     }
@@ -122,38 +123,27 @@ public final class BankTerminalScreen extends Screen {
 
     private void initMoney(List<BankSnapshot.MoneyRow> rows, boolean includeAll, String verb) {
         ensurePay(rows);
-        int top = contentTop() + 28;
-        place("pay", centerX(listWidth()), top, listWidth(), Math.max(36, fieldTop() - 16 - top), moneyChoices(rows), payId);
+        int top = fittedTop(contentTop() + 28);
+        place("pay", centerX(listWidth()), top, listWidth(), fittedHeight(top), moneyChoices(rows), payId);
         addAmountBlock(includeAll, verb);
     }
 
     private void initExchange() {
-        List<BankSnapshot.MoneyRow> rows = BankSnapshot.hardCurrencies(data);
-        ensurePay(rows);
-        ensureReceive(rows);
-        int top = contentTop() + 28;
-        int height = Math.max(36, fieldTop() - 16 - top);
+        List<ChoiceListWidget.Choice> rows = exchangeChoices();
+        ensureExchangeIds(rows);
+        int top = fittedTop(contentTop() + 36);
+        int height = fittedHeight(top);
         int[] columns = twoColumns();
-        place("pay", columns[0], top, columns[2], height, moneyChoices(rows), payId);
-        place("receive", columns[1], top, columns[2], height, moneyChoices(rows), receiveId);
+        place("pay", columns[0], top, columns[2], height, rows, payId);
+        place("receive", columns[1], top, columns[2], height, rows, receiveId);
         addAmountBlock(false, "确认兑换");
     }
 
-    private void initChecks() {
-        place("check", centerX(listWidth()), contentTop() + 28, listWidth(), 40, List.of(
-                new ChoiceListWidget.Choice("issue", "开立汇票"),
-                new ChoiceListWidget.Choice("redeem", "兑付汇票")), checkView);
-        if (!"issue".equals(checkView)) {
-            redeemButtonReady = true;
-            String label = "确认兑付背包中的汇票、铜锭、钻石和银行券";
-            addDrawableChild(ButtonWidget.builder(Text.literal(label), button -> send(BankActions.presentHeld()))
-                    .dimensions(mainLeft(), contentTop() + 120, buttonWidth(label), 20).build());
-            return;
-        }
+    private void initIssue() {
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
-        int top = contentTop() + 74;
-        int height = Math.max(36, fieldTop() - 16 - top);
+        int top = fittedTop(contentTop() + 36);
+        int height = fittedHeight(top);
         int[] columns = twoColumns();
         place("pay", columns[0], top, columns[2], height, moneyChoices(rows), payId);
         place("payee", columns[1], top, columns[2], height, List.of(
@@ -162,16 +152,28 @@ public final class BankTerminalScreen extends Screen {
         addAmountBlock(false, "确认开立汇票");
     }
 
+    private void initRedeem() {
+        String label = "确认兑付背包中的汇票、铜锭、钻石和银行券";
+        int width = buttonWidth(label);
+        int x = mainLeft() + Math.max(0, (mainWidth() - width) / 2);
+        if (x < mainLeft()) {
+            x = mainLeft();
+        }
+        addDrawableChild(ButtonWidget.builder(Text.literal(label), button -> send(BankActions.presentHeld()))
+                .dimensions(x, controlsTop() + 28, width, 20).build());
+    }
+
     private void initMarket() {
-        place("mode", centerX(listWidth()), contentTop() + 28, listWidth(), 76, List.of(
+        int[] band = splitBand(contentTop() + 40, 72);
+        place("mode", centerX(listWidth()), band[0], listWidth(), band[1], List.of(
                 new ChoiceListWidget.Choice("buy", "买入"),
                 new ChoiceListWidget.Choice("sell", "卖出"),
                 new ChoiceListWidget.Choice("swap", "互换"),
                 new ChoiceListWidget.Choice("redeem", "通兑")), marketMode);
         List<BankSnapshot.NoteRow> notes = BankSnapshot.notes(data);
         ensureNote(notes);
-        int top = contentTop() + 110;
-        int height = Math.max(36, fieldTop() - 44 - top);
+        int top = band[2];
+        int height = band[3];
         if ("swap".equals(marketMode)) {
             int[] columns = twoColumns();
             place("note", columns[0], top, columns[2], height, noteChoices(notes), noteName);
@@ -192,7 +194,8 @@ public final class BankTerminalScreen extends Screen {
 
     private void initIssuance() {
         if (!BankSnapshot.hasPersonal(data)) {
-            place("regime", centerX(listWidth()), contentTop() + 40, listWidth(), 72, List.of(
+            int regimeTop = fittedTop(contentTop() + 40);
+            place("regime", centerX(listWidth()), regimeTop, listWidth(), Math.min(72, fittedHeight(regimeTop)), List.of(
                     new ChoiceListWidget.Choice("float", "浮动"),
                     new ChoiceListWidget.Choice("peg", "钉住"),
                     new ChoiceListWidget.Choice("hard", "定额兑付")), "float");
@@ -227,8 +230,8 @@ public final class BankTerminalScreen extends Screen {
         }
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
-        int top = contentTop() + 18 + BankHeader.managementAggregates(data).size() * 12;
-        place("pay", centerX(listWidth()), top, listWidth(), Math.max(36, fieldTop() - top), moneyChoices(rows), payId);
+        int top = fittedTop(contentTop() + 18 + BankHeader.managementAggregates(data).size() * 12);
+        place("pay", centerX(listWidth()), top, listWidth(), fittedHeight(top), moneyChoices(rows), payId);
         addAmountBlock(false, null);
         int y = BankLayout.contentBottom(this.height) - 20;
         int x = mainLeft();
@@ -261,9 +264,9 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private void addAmountBlock(boolean includeAll, String verb) {
-        int actionY = BankLayout.contentBottom(this.height) - 20;
-        int quickY = actionY - 22;
-        int fieldY = quickY - 20;
+        int fieldY = controlsTop();
+        int quickY = fieldY + 20;
+        int actionY = quickY + 22;
         int fieldWidth = Math.min(120, Math.max(70, mainWidth() / 3));
         amount = new TextFieldWidget(textRenderer, centerX(fieldWidth), fieldY, fieldWidth, 16, Text.literal("数量"));
         amount.setMaxLength(32);
@@ -327,9 +330,6 @@ public final class BankTerminalScreen extends Screen {
             item.widget.render(context, mouseX, mouseY, delta);
             drawBalanceUnder(context, item);
         }
-        if (redeemButtonReady) {
-            drawRedeem(context);
-        }
     }
 
     private void drawColumn(DrawContext context) {
@@ -342,7 +342,7 @@ public final class BankTerminalScreen extends Screen {
                 break;
             }
             int color = 0xFFE6E6E6;
-            if (line.startsWith("汇率") || line.startsWith("1 钻石")) {
+            if (line.startsWith("1 钻石") || line.startsWith("1 银行券") || line.startsWith("1 【")) {
                 color = 0xFFE8D090;
             } else if (line.contains(BankRates.UNAVAILABLE)) {
                 color = 0xFFAAAAAA;
@@ -360,8 +360,9 @@ public final class BankTerminalScreen extends Screen {
             case SAVINGS -> drawSavings(context);
             case DEPOSIT -> drawHeading(context, "存入个人存款", "选择货币后，余额显示在列表下方。");
             case WITHDRAW -> drawHeading(context, "取出个人存款", "选择货币后，余额显示在列表下方。");
-            case EXCHANGE -> drawHeading(context, "硬通货兑换", "只在铜锭、钻石和银行券之间兑换。");
-            case CHECKS -> drawHeading(context, "汇票", "issue".equals(checkView) ? "开立汇票" : "兑付汇票");
+            case EXCHANGE -> drawHeading(context, "硬通货兑换", "按牌价在账户之间兑换。这不是通兑，不动发行人的准备金。");
+            case ISSUE -> drawHeading(context, "开立汇票", "选择币种和抬头，再填写开出的数量。");
+            case REDEEM -> drawRedeem(context);
             case MARKET -> drawHeading(context, "个人银行券交易", marketHeading());
             case ISSUANCE -> drawIssuance(context);
             case MANAGEMENT -> drawManagement(context);
@@ -457,7 +458,8 @@ public final class BankTerminalScreen extends Screen {
             context.drawText(textRenderer, aggregate, x, line, 0xFFE6E6E6, false);
             line += 12;
         }
-        int limit = fieldTop() - 4;
+        Placed currencyList = placed("pay");
+        int limit = currencyList == null ? controlsTop() : currencyList.y() - 2;
         if (BankSnapshot.central(data).isEmpty() && !BankSnapshot.has(data, "issuanceDiamond")) {
             line = drawWrapped(context, "发行准备金和储蓄保管不在当前柜台数据里。", x, line, mainWidth(), 0xFFAAAAAA);
         }
@@ -495,9 +497,10 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private void drawRedeem(DrawContext context) {
-        int y = contentTop() + 78;
+        int y = contentTop() + 8;
+        context.drawText(textRenderer, "兑付汇票", mainLeft(), y, 0xFFD0B060, false);
         y = drawWrapped(context, "兑付背包里的汇票时，背包中的铜锭、钻石和银行券也会一并存入个人存款。",
-                mainLeft(), y, mainWidth(), 0xFFE6E6E6);
+                mainLeft(), y + 16, mainWidth(), 0xFFE6E6E6);
         drawWrapped(context, "柜台没有只兑付汇票的动作。", mainLeft(), y, mainWidth(), 0xFFAAAAAA);
     }
 
@@ -518,15 +521,11 @@ public final class BankTerminalScreen extends Screen {
             return;
         }
         String line = balanceCaption(item) + BankSnapshot.balancePhrase(balanceFor(item.role, item.widget.selectedId()));
-        context.drawText(textRenderer, line, item.x, item.y + item.height + 2, 0xFFB7C7B0, false);
-        if ("note".equals(item.role) && ("buy".equals(marketMode) || "sell".equals(marketMode) || "redeem".equals(marketMode))) {
+        if ("note".equals(item.role)) {
             BankSnapshot.NoteRow note = findNote(item.widget.selectedId());
-            String price = note == null || note.price() == null ? BankRates.UNAVAILABLE : "现价：" + note.price();
-            context.drawText(textRenderer, price, item.x, item.y + item.height + 14, note != null && note.price() != null ? 0xFFE8D090 : 0xFFAAAAAA, false);
-            if ("buy".equals(marketMode) || "sell".equals(marketMode)) {
-                context.drawText(textRenderer, "结算货币：银行券。", item.x, item.y + item.height + 26, 0xFFAAAAAA, false);
-            }
+            line += note == null || note.price() == null ? "  " + BankRates.UNAVAILABLE : "  现价：" + note.price();
         }
+        context.drawText(textRenderer, line, item.x, item.y + item.height + 2, 0xFFB7C7B0, false);
     }
 
     @Override
@@ -557,12 +556,6 @@ public final class BankTerminalScreen extends Screen {
                     if ("redeem".equals(id)) {
                         receiveId = currencyId(BankSnapshot.hardCurrencies(data), "银行券", "note");
                     }
-                    client.execute(this::clearAndInit);
-                }
-            }
-            case "check" -> {
-                if (!id.equals(checkView)) {
-                    checkView = id;
                     client.execute(this::clearAndInit);
                 }
             }
@@ -599,13 +592,8 @@ public final class BankTerminalScreen extends Screen {
             case DEPOSIT -> sendIfPresent(selected("pay", payId), () -> BankActions.deposit(selected("pay", payId), quantity));
             case WITHDRAW -> sendIfPresent(selected("pay", payId), () -> BankActions.withdraw(selected("pay", payId), quantity));
             case EXCHANGE -> submitExchange(quantity);
-            case CHECKS -> {
-                if (!"issue".equals(checkView)) {
-                    send(BankActions.presentHeld());
-                    return;
-                }
-                sendIfPresent(selected("pay", payId), () -> BankActions.check(selected("pay", payId), quantity, checkSelf()));
-            }
+            case ISSUE -> sendIfPresent(selected("pay", payId), () -> BankActions.check(selected("pay", payId), quantity, checkSelf()));
+            case REDEEM -> send(BankActions.presentHeld());
             case MARKET -> submitMarket(quantity);
             default -> {
             }
@@ -620,10 +608,15 @@ public final class BankTerminalScreen extends Screen {
             return;
         }
         if (pay.equals(receive)) {
-            notice = "付出和得到不能是同一种货币。";
+            notice = "付出和得到不能是同一种。";
             return;
         }
-        send(BankActions.exchange(pay, receive, quantity));
+        String command = BankExchange.command(pay, receive, quantity);
+        if (command == null) {
+            notice = BankExchange.REFUSAL;
+            return;
+        }
+        send(command);
     }
 
     private void submitMarket(String quantity) {
@@ -686,10 +679,6 @@ public final class BankTerminalScreen extends Screen {
         String mode = selected("mode", marketMode);
         if (!mode.isBlank()) {
             marketMode = mode;
-        }
-        String view = selected("check", checkView);
-        if (!view.isBlank()) {
-            checkView = view;
         }
         String payee = selected("payee", "");
         if ("self".equals(payee)) {
@@ -772,8 +761,9 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private String balanceFor(String role, String id) {
-        if ("note".equals(role) || "other".equals(role)) {
-            BankSnapshot.NoteRow note = findNote(id);
+        if (BankExchange.personal(id) || "note".equals(role) || "other".equals(role)) {
+            String name = BankExchange.personal(id) ? BankExchange.noteName(id) : id;
+            BankSnapshot.NoteRow note = findNote(name);
             return note == null ? null : note.balance();
         }
         BankSnapshot.MoneyRow money = findMoney(BankSnapshot.currencies(data), id);
@@ -803,10 +793,10 @@ public final class BankTerminalScreen extends Screen {
 
     private String marketHeading() {
         return switch (marketMode) {
-            case "sell" -> "卖出个人银行券，按银行券结算。";
-            case "swap" -> "把一张个人银行券换成另一张。";
-            case "redeem" -> "按该券的规则通兑成铜锭、钻石或银行券。";
-            default -> "买入个人银行券，按银行券结算。";
+            case "sell" -> "卖出个人银行券，只换成银行券，不动发行人的准备金。";
+            case "swap" -> "把一张个人银行券换成另一张，不动发行人的准备金。";
+            case "redeem" -> "通兑按该券的规则兑付发行人的准备金，不是同一账户里的兑换。";
+            default -> "买入个人银行券，只用银行券支付，不动发行人的准备金。";
         };
     }
 
@@ -943,10 +933,84 @@ public final class BankTerminalScreen extends Screen {
             case "存入" -> Page.DEPOSIT;
             case "取出" -> Page.WITHDRAW;
             case "硬通货兑换" -> Page.EXCHANGE;
-            case "汇票" -> Page.CHECKS;
+            case "开立汇票" -> Page.ISSUE;
+            case "兑付汇票" -> Page.REDEEM;
             case "个人银行券交易" -> Page.MARKET;
             default -> Page.SAVINGS;
         };
+    }
+
+    private int controlsTop() {
+        return BankLayout.contentBottom(this.height) - 64;
+    }
+
+    private int listFloor() {
+        return controlsTop() - 16;
+    }
+
+    private int fittedTop(int desired) {
+        int floor = listFloor();
+        if (desired + 18 <= floor) {
+            return desired;
+        }
+        return Math.max(contentTop(), floor - 18);
+    }
+
+    private int fittedHeight(int top) {
+        return Math.max(18, listFloor() - top);
+    }
+
+    private int[] splitBand(int start, int preferredFirst) {
+        int top = fittedTop(start);
+        int floor = listFloor();
+        int available = Math.max(40, floor - top);
+        int first = Math.min(preferredFirst, Math.max(28, available / 2));
+        int secondTop = top + first + 4;
+        int second = floor - secondTop;
+        if (second < 18) {
+            second = 18;
+            secondTop = Math.max(top + 22, floor - second);
+            first = Math.max(18, secondTop - 4 - top);
+        }
+        return new int[] {top, first, secondTop, second};
+    }
+
+    private List<ChoiceListWidget.Choice> exchangeChoices() {
+        List<ChoiceListWidget.Choice> choices = new ArrayList<>(moneyChoices(BankSnapshot.hardCurrencies(data)));
+        for (BankSnapshot.NoteRow note : BankSnapshot.notes(data)) {
+            String label = note.name();
+            for (BankSnapshot.MoneyRow money : BankSnapshot.currencies(data)) {
+                if (money.name().equals(note.name())) {
+                    label = "个人银行券 " + note.name();
+                    break;
+                }
+            }
+            choices.add(new ChoiceListWidget.Choice(BankExchange.idForNote(note.name()), label));
+        }
+        return choices;
+    }
+
+    private void ensureExchangeIds(List<ChoiceListWidget.Choice> rows) {
+        if (!containsChoice(rows, payId) && !rows.isEmpty()) {
+            payId = rows.get(0).id();
+        }
+        if (!containsChoice(rows, receiveId) || receiveId.equals(payId)) {
+            for (ChoiceListWidget.Choice choice : rows) {
+                if (!choice.id().equals(payId)) {
+                    receiveId = choice.id();
+                    return;
+                }
+            }
+        }
+    }
+
+    private static boolean containsChoice(List<ChoiceListWidget.Choice> rows, String id) {
+        for (ChoiceListWidget.Choice choice : rows) {
+            if (choice.id().equals(id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String safe(String value) {

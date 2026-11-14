@@ -87,9 +87,9 @@ public final class BankLayout {
         return new Box(label, screenWidth - EDGE - width, y, width, BUTTON_HEIGHT);
     }
 
+    /** Both top buttons are reserved even when management is not shown. */
     public static int contentTop(boolean admin) {
-        int buttons = admin ? EDGE + BUTTON_HEIGHT + TOP_GAP + BUTTON_HEIGHT : EDGE + BUTTON_HEIGHT;
-        return buttons + GAP;
+        return EDGE + BUTTON_HEIGHT + TOP_GAP + BUTTON_HEIGHT + GAP;
     }
 
     public static Box closeBox(int screenWidth, int screenHeight) {

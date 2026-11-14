@@ -10,7 +10,7 @@ import java.util.List;
 
 /** Reads the optional UI snapshot. Missing fields stay missing; nothing is invented. */
 public final class BankSnapshot {
-    public record MoneyRow(String id, String name, String amount, String rate) {
+    public record MoneyRow(String id, String name, String amount, String rate, String unitsPerDiamond) {
     }
 
     public record NoteRow(String id, String name, String balance, String price) {
@@ -61,7 +61,7 @@ public final class BankSnapshot {
             if (id == null || name == null) {
                 continue;
             }
-            rows.add(new MoneyRow(id, name, amount(row), rate(data, row, id, name)));
+            rows.add(new MoneyRow(id, name, amount(row), first(row, "rate"), first(row, "unitsPerDiamond")));
         }
         return rows;
     }
@@ -156,21 +156,6 @@ public final class BankSnapshot {
         } catch (NumberFormatException exception) {
             return "0".equals(raw.trim());
         }
-    }
-
-    private static String rate(JsonObject root, JsonObject row, String id, String name) {
-        String direct = first(row, "rate", "unitsPer", "unitsPerDiamond", "price");
-        if (direct != null) {
-            return direct;
-        }
-        for (JsonObject quoted : array(root, "rates")) {
-            String quotedId = text(quoted, "id");
-            String quotedName = text(quoted, "name");
-            if ((quotedId != null && quotedId.equals(id)) || (quotedName != null && quotedName.equals(name))) {
-                return first(quoted, "rate", "value", "price", "amount");
-            }
-        }
-        return null;
     }
 
     private static String amount(JsonObject row) {
