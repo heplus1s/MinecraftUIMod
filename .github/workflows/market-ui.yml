@@ -1,0 +1,23 @@
+name: Market UI build
+on:
+  push:
+    branches: [dot/market-terminal]
+  pull_request:
+    paths: ['market-ui/**', 'settings.gradle', 'gradle.properties', '.github/workflows/market-ui.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test and build optional market client
+        run: bash ./gradlew :market-ui:test :market-ui:build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketmod-ui
+          path: market-ui/build/libs/*

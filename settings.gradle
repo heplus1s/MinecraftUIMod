@@ -16,3 +16,4 @@ include "land-ui"
 include "shop-ui"
 
 // market-ui stays a reserved folder until that pack exists.
+include "market-ui"

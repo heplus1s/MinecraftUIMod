@@ -1,9 +1,14 @@
-# market-ui
+# Market UI
 
-这里留给以后的市场界面。现在没有市场玩法，也不会打出 jar。
+可选 Fabric 1.20.1 客户端交易终端，`/marketui` 打开。服务端须运行新版 MinecraftMarketMod；原版客户端不需要本包。
 
-银行里已有的交易页属于银行界面，不在这个文件夹里。
+- 深色交易所布局：挂牌行情、交易详情、新挂牌和我的委托。
+- 结算货币由服务端发布的可用列表选择，挂牌请求传递所选币种，银行负责实际结算。没有自动换汇。
+- 整笔买入需二次确认；提交后禁用按钮，等待服务端结果。
+- 市场目前是卖方整笔挂牌，不是连续双边撮合。界面不生成假 K 线、买盘、成交量或账户余额。
+- GUI 宽度小于 660 像素改用行情/详情/下单页签；支持 320×240 及以上 GUI 缩放后尺寸。长文本裁剪，不覆盖相邻区域。
+- 搜索输入后点击“搜索”，列表分页。原版箱子菜单由服务端 `/market ui` 提供。
 
-This folder is reserved for a future market screen. There is no market gameplay here, and this folder is not a Gradle module, so it does not build a jar.
+构建：`./gradlew :market-ui:build`，产物 `market-ui/build/libs/marketmod-ui-1.0.0.jar`。
 
-The trade page that already belongs to the bank stays in `bank-ui`.
+验证：布局单元测试覆盖 320×240、427×240、480×270、640×360、660×360、854×480、960×540、1280×720、1920×1080。构建通过不等于 Minecraft 实机联调通过。
