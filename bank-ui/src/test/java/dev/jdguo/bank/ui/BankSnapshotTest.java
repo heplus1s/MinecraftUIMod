@@ -47,5 +47,24 @@ class BankSnapshotTest {
         assertFalse(BankSnapshot.has(data, "interest"));
         assertFalse(BankSnapshot.has(data, "issuable"));
         assertTrue(BankSnapshot.admin(data));
+        data.addProperty("frozen", true);
+        assertNull(BankSnapshot.notePaused(data));
+    }
+
+    @Test
+    void personalRedemptionPauseComesFromTheNoteNotTheCentralFlag() {
+        JsonObject paused = JsonParser.parseString("""
+                {"frozen": false, "ownNote": {"frozen": true}}
+                """).getAsJsonObject();
+        assertEquals(Boolean.TRUE, BankSnapshot.notePaused(paused));
+        JsonObject open = JsonParser.parseString("""
+                {"frozen": true, "ownNote": {"frozen": false}}
+                """).getAsJsonObject();
+        assertEquals(Boolean.FALSE, BankSnapshot.notePaused(open));
+        JsonObject unnamed = JsonParser.parseString("""
+                {"ownNote": {"status": "兑付已暂停"}}
+                """).getAsJsonObject();
+        assertEquals(Boolean.TRUE, BankSnapshot.notePaused(unnamed));
+        assertNull(BankSnapshot.notePaused(new JsonObject()));
     }
 }

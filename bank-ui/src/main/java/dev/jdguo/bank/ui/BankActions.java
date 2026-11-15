@@ -57,6 +57,24 @@ public final class BankActions {
         return "note-unbacked " + quantity;
     }
 
+    /** Issues the typed amount with no reserve lock. */
+    public static String issueUnbacked(String quantity) {
+        return "issue-unbacked " + quantity;
+    }
+
+    /** Retires the typed amount of the player's own note. */
+    public static String noteRetire(String quantity) {
+        return "note-retire " + quantity;
+    }
+
+    public static String noteFreeze() {
+        return "note-freeze";
+    }
+
+    public static String noteUnfreeze() {
+        return "note-unfreeze";
+    }
+
     public static String reserveDeposit(String quantity) {
         return "reserve-deposit " + quantity;
     }

@@ -270,6 +270,9 @@ public final class BankTerminalScreen extends Screen {
         }
         y = paneText(pane, "锚：" + (anchor == null ? BankBook.MISSING : anchorName(anchor)), left, y, textWidth, 0xFFE6E6E6);
         for (String row : BankRegimes.issuanceHoldings(data)) {
+            if (row.startsWith("已锁定")) {
+                continue;
+            }
             int color = row.contains(BankBook.MISSING) ? 0xFFAAAAAA : 0xFFE8D090;
             y = paneText(pane, row, left, y, textWidth, color);
         }
@@ -280,7 +283,29 @@ public final class BankTerminalScreen extends Screen {
             pane.setScroll(issuanceScroll);
             return;
         }
+        y += 6;
+        y = addIssuanceAmount(pane, left, right, textWidth, y);
+        Boolean paused = BankSnapshot.notePaused(data);
+        if (paused != null) {
+            y = paneText(pane, paused ? "兑付：已暂停" : "兑付：正常", left, y, textWidth, paused ? 0xFFFF7777 : 0xFF77DD77);
+            y += 2;
+        }
+        String freezeLabel = Boolean.TRUE.equals(paused) ? "恢复兑付" : "暂停兑付";
+        y = paneButtons(pane, left, right, y, List.of("按数量增发", "按数量收回"), List.of(
+                () -> sendAmount(BankActions::issueUnbacked),
+                () -> sendAmount(BankActions::noteRetire)));
         y += 4;
+        y = paneButtons(pane, left, right, y, List.of(freezeLabel), List.of(
+                () -> send(Boolean.TRUE.equals(paused) ? BankActions.noteUnfreeze() : BankActions.noteFreeze())));
+        y += 4;
+        y = paneButtons(pane, left, right, y, List.of("存入央行准备金", "取出央行准备金"), List.of(
+                () -> sendAmount(BankActions::reserveDeposit),
+                () -> sendAmount(BankActions::reserveWithdraw)));
+        y += 4;
+        y = paneButtons(pane, left, right, y, List.of("按准备金发行", "确认切换"), List.of(
+                () -> sendAmount(BankActions::noteIssue),
+                this::confirmSwitch));
+        y += 8;
         String rule = BankRegimes.FLOAT_RULE;
         if (regimeName != null && regimeName.contains("联系")) {
             rule = BankRegimes.PEG_RULE;
@@ -301,7 +326,11 @@ public final class BankTerminalScreen extends Screen {
             anchorChoices.add(new ChoiceListWidget.Choice(row.id(), row.label(), row.group()));
         }
         y = placeScrollDrawer(pane, "switchAnchor", left, right, y, anchorChoices, switchAnchor);
-        y += 8;
+        pane.finish(y);
+        pane.setScroll(issuanceScroll);
+    }
+
+    private int addIssuanceAmount(IssuancePane pane, int left, int right, int textWidth, int y) {
         int fieldWidth = Math.min(120, textWidth);
         int fieldX = left + Math.max(0, (textWidth - fieldWidth) / 2);
         amount = new TextFieldWidget(textRenderer, fieldX, y, fieldWidth, 16, Text.literal("数量"));
@@ -319,17 +348,7 @@ public final class BankTerminalScreen extends Screen {
                     .dimensions(box.x(), box.y(), box.width(), box.height()).build();
             pane.addControl(chip, box.x(), box.y());
         }
-        y = chipFlow.bottom() + 4;
-        y = paneButtons(pane, left, right, y, List.of("存入央行准备金", "取出央行准备金"), List.of(
-                () -> sendAmount(BankActions::reserveDeposit),
-                () -> sendAmount(BankActions::reserveWithdraw)));
-        y += 4;
-        y = paneButtons(pane, left, right, y, List.of("按准备金发行", "确认切换", "无准备金虚发"), List.of(
-                () -> sendAmount(BankActions::noteIssue),
-                this::confirmSwitch,
-                () -> sendAmount(BankActions::noteUnbacked)));
-        pane.finish(y);
-        pane.setScroll(issuanceScroll);
+        return chipFlow.bottom() + 4;
     }
 
     private void toggleIssuanceDrawer(String role) {

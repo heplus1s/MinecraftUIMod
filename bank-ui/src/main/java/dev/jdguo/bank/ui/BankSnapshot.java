@@ -84,13 +84,27 @@ public final class BankSnapshot {
     }
 
     public static Boolean frozen(JsonObject data) {
-        if (data == null || !data.has("frozen") || !data.get("frozen").isJsonPrimitive()) {
-            return null;
+        return optionalFlag(data, "frozen");
+    }
+
+    /**
+     * Whether this personal note's redemption is paused.
+     * Reads the note object, not the central-bank {@code frozen} flag.
+     * Absent means the snapshot did not say, so the client does not invent a state.
+     */
+    public static Boolean notePaused(JsonObject data) {
+        JsonObject note = ownNote(data);
+        for (String key : new String[] {"frozen", "paused", "suspended"}) {
+            Boolean flagged = optionalFlag(note, key);
+            if (flagged != null) {
+                return flagged;
+            }
         }
-        if (!data.get("frozen").getAsJsonPrimitive().isBoolean()) {
-            return null;
+        String status = text(note, "status");
+        if (status != null) {
+            return status.contains("暂停");
         }
-        return data.get("frozen").getAsBoolean();
+        return null;
     }
 
     public static boolean has(JsonObject data, String key) {
@@ -244,7 +258,17 @@ public final class BankSnapshot {
     }
 
     private static boolean flag(JsonObject data, String key) {
-        return data != null && data.has(key) && data.get(key).isJsonPrimitive() && data.get(key).getAsBoolean();
+        return Boolean.TRUE.equals(optionalFlag(data, key));
+    }
+
+    private static Boolean optionalFlag(JsonObject data, String key) {
+        if (data == null || !data.has(key) || data.get(key).isJsonNull() || !data.get(key).isJsonPrimitive()) {
+            return null;
+        }
+        if (!data.get(key).getAsJsonPrimitive().isBoolean()) {
+            return null;
+        }
+        return data.get(key).getAsBoolean();
     }
 
     private static List<JsonObject> array(JsonObject data, String key) {

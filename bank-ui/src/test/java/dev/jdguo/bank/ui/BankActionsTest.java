@@ -24,6 +24,10 @@ class BankActionsTest {
         assertEquals("note-redeem 张三 note 1", BankActions.noteRedeem("张三", "note", "1"));
         assertEquals("note-issue 64", BankActions.noteIssue("64"));
         assertEquals("note-unbacked 64", BankActions.noteUnbacked("64"));
+        assertEquals("issue-unbacked 256", BankActions.issueUnbacked("256"));
+        assertEquals("note-retire 256", BankActions.noteRetire("256"));
+        assertEquals("note-freeze", BankActions.noteFreeze());
+        assertEquals("note-unfreeze", BankActions.noteUnfreeze());
         assertEquals("admin-freeze", BankActions.adminFreeze());
         assertEquals("admin-unbacked note 1000", BankActions.adminUnbacked("note", "1000"));
         assertEquals("admin-unbacked note 200000", BankActions.adminUnbacked("note", "200000"));
