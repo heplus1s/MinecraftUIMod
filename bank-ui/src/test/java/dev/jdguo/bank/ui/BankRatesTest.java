@@ -2,6 +2,7 @@ package dev.jdguo.bank.ui;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,6 +10,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BankRatesTest {
+    @Test
+    void personalQuotesKeepSixDigitsAndShowZeroAsZero() {
+        JsonObject data = JsonParser.parseString("""
+                {"notes":[
+                  {"name":"泉","price":"0.123456"},
+                  {"name":"元","price":"0.000001"},
+                  {"name":"券","price":"0"}
+                ]}
+                """).getAsJsonObject();
+        var lines = BankRates.column(data);
+        assertTrue(lines.contains("1 【泉】 = 0.123456 银行券"));
+        assertTrue(lines.contains("1 【元】 = 0.000001 银行券"));
+        assertTrue(lines.contains("1 【券】 = 0 银行券"));
+    }
+
     @Test
     void missingQuotesStayNamedAndCopperIsNotASeparateRow() {
         JsonObject data = new JsonObject();

@@ -883,7 +883,7 @@ public final class BankTerminalScreen extends Screen {
         context.drawText(textRenderer, line, item.x, textY, 0xFFB7C7B0, false);
         if ("note".equals(item.role)) {
             BankSnapshot.NoteRow note = findNote(item.widget.selectedId());
-            String quote = note == null || note.price() == null ? BankRates.UNAVAILABLE : "现价：" + BankHeader.figure(note.price());
+            String quote = note == null || note.price() == null ? BankRates.UNAVAILABLE : "现价：" + note.price();
             context.drawText(textRenderer, quote, item.x, textY + 12, note == null || note.price() == null ? 0xFFAAAAAA : 0xFFE8D090, false);
         }
     }

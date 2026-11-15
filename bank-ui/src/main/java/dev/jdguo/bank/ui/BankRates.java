@@ -65,7 +65,7 @@ public final class BankRates {
     /** {@code price} is central bank notes for one personal note. */
     public static String personalQuote(BankSnapshot.NoteRow note) {
         String name = note.name() == null ? "" : note.name();
-        String shown = amount(note.price());
+        String shown = "0".equals(note.price()) ? "0" : amount(note.price());
         if (UNAVAILABLE.equals(shown)) {
             return "1 【" + name + "】 = " + UNAVAILABLE;
         }
