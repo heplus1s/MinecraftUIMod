@@ -142,11 +142,12 @@ public final class MarketScreen extends Screen {
         if(!layout.compact()||tab==2){var b=layout.order();panel(c,b,"卖出 / 新挂牌");line(c,"每件价（整数）",b.x()+6,b.y()+55,(b.width()-18)/2,0xff99abbc);line(c,"数量",b.x()+6+(b.width()-6)/2,b.y()+55,(b.width()-18)/2,0xff99abbc);}
         c.enableScissor(4,height-44,width-4,height-4);line(c,notice.isBlank()?(Boolean.parseBoolean(text(data,"truncated")) ? "当前仅显示部分挂牌，请用 /market search 查询" : "无自动换汇 · 个人币交易使用 /market note"):notice,8,height-38,width-16,0xffffc66d);c.disableScissor();
         super.render(c,mx,my,delta);
+        if (!notice.isBlank() && my >= height-44) c.drawOrderedTooltip(textRenderer, textRenderer.wrapLines(Text.literal(notice), Math.max(120,width-48)), mx,my);
         if ((!layout.compact() || tab == 1) && selection() != null) {
             var b=layout.details();
             if(mx>=b.x() && mx<b.x()+b.width() && my>=b.y()+24 && my<b.y()+b.height()-30) {
                 var row=selection();
-                c.drawTooltip(textRenderer, textRenderer.wrapLines(Text.literal(name(row)+"\n卖方："+text(row,"sellerName")+"\n单价："+text(row,"unitPrice")+" "+text(row,"currency")+"\n总额："+text(row,"totalPrice")+" "+text(row,"currency")+"\n完整编号："+text(row,"id")), Math.max(120,width-48)), mx, my);
+                c.drawOrderedTooltip(textRenderer, textRenderer.wrapLines(Text.literal(name(row)+"\n卖方："+text(row,"sellerName")+"\n单价："+text(row,"unitPrice")+" "+text(row,"currency")+"\n总额："+text(row,"totalPrice")+" "+text(row,"currency")+"\n完整编号："+text(row,"id")), Math.max(120,width-48)), mx, my);
             }
         }
     }

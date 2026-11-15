@@ -15,5 +15,5 @@ include "bank-ui"
 include "land-ui"
 include "shop-ui"
 
-// market-ui stays a reserved folder until that pack exists.
+// Optional market exchange-style client terminal.
 include "market-ui"
