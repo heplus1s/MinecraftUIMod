@@ -67,6 +67,8 @@ class BankRatesTest {
         data.add("currencies", currencies);
 
         assertEquals("1 银行券 = 0.001000 钻石", BankRates.bankNoteQuote(data));
+        data.addProperty("diamondsPerNote", "0.5");
+        assertEquals("1 银行券 = 0.500000 钻石", BankRates.bankNoteQuote(data));
     }
 
     private static JsonArray currencies(boolean quoted) {

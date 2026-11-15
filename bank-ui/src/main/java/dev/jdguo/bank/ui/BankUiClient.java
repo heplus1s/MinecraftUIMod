@@ -37,6 +37,14 @@ public final class BankUiClient implements ClientModInitializer {
 
     private static void open(MinecraftClient client, String json) {
         JsonObject data = JsonParser.parseString(json).getAsJsonObject();
+        if (BankSnapshot.admin(data)) {
+            if (client.currentScreen instanceof BankAdminScreen screen) {
+                screen.show(data);
+                return;
+            }
+            client.setScreen(new BankAdminScreen(data));
+            return;
+        }
         if (client.currentScreen instanceof BankTerminalScreen screen) {
             screen.show(data);
             return;

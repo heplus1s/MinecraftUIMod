@@ -45,12 +45,16 @@ public final class BankRates {
      * The displayed line is diamonds for one bank note.
      */
     public static String bankNoteQuote(JsonObject data) {
+        String direct = amount(BankSnapshot.text(data, "diamondsPerNote"));
+        if (!UNAVAILABLE.equals(direct)) {
+            return "1 银行券 = " + direct + " 钻石";
+        }
         BankSnapshot.MoneyRow note = centralNote(data);
         if (note == null) {
             return "1 银行券 = " + UNAVAILABLE;
         }
-        String perDiamond = note.unitsPerDiamond() != null ? note.unitsPerDiamond() : note.rate();
-        BigDecimal notes = parse(perDiamond);
+        String written = note.unitsPerDiamond() != null ? note.unitsPerDiamond() : note.rate();
+        BigDecimal notes = parse(written);
         if (notes == null || notes.signum() == 0) {
             return "1 银行券 = " + UNAVAILABLE;
         }

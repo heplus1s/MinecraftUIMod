@@ -70,7 +70,7 @@ final class ShopDrawer extends AlwaysSelectedEntryListWidget<ShopDrawer.Row> {
         int bottom = expanded ? this.bottom : this.top + HEADER;
         frame(context, this.left, this.top, this.right, bottom);
         String label = getSelectedOrNull() == null ? "银行券" : getSelectedOrNull().choice.label;
-        context.drawText(client.textRenderer, label, this.left + 6, this.top + 6, 0xFFE8E8E8, false);
+        context.drawText(client.textRenderer, label, this.left + 6, this.top + 6, 0xFFFFFFFF, true);
         String cue = expanded ? "收起" : "展开";
         context.drawText(client.textRenderer, cue, this.right - client.textRenderer.getWidth(cue) - 6, this.top + 6, 0xFFE8D090, false);
         if (!expanded) {
@@ -135,7 +135,7 @@ final class ShopDrawer extends AlwaysSelectedEntryListWidget<ShopDrawer.Row> {
     }
 
     private static void frame(DrawContext context, int left, int top, int right, int bottom) {
-        context.fill(left, top, right, bottom, 0xF0101014);
+        context.fill(left, top, right, bottom, 0xFF101014);
         context.fill(left, top, right, top + 1, 0xFFC8A060);
         context.fill(left, bottom - 1, right, bottom, 0xFFC8A060);
         context.fill(left, top, left + 1, bottom, 0xFFC8A060);
@@ -158,7 +158,7 @@ final class ShopDrawer extends AlwaysSelectedEntryListWidget<ShopDrawer.Row> {
             if (getSelectedOrNull() == this || hovered) {
                 context.fill(x, y, x + entryWidth, y + entryHeight - 1, 0xAA3A5A38);
             }
-            context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, x + 4, y + 4, 0xFFE8E8E8, false);
+            context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, x + 4, y + 4, 0xFFFFFFFF, true);
         }
 
         @Override

@@ -3,6 +3,7 @@ package dev.jdguo.bank.ui;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BankActionsTest {
     @Test
@@ -38,6 +39,9 @@ class BankActionsTest {
 
     @Test
     void namingFillsTheExistingCreateCommand() {
+        assertTrue(BankActions.noteNamePrompt("float").contains("浮动汇率制"));
+        assertTrue(BankActions.noteNamePrompt("联系汇率制").contains("个人银行券的名字"));
+        assertTrue(BankActions.noteNamePrompt("固定汇率制").contains("固定汇率制"));
         assertEquals("/bank note create float ", BankActions.noteNameCommand("float"));
         assertEquals("/bank note create peg ", BankActions.noteNameCommand("钉住"));
         assertEquals("/bank note create hard ", BankActions.noteNameCommand("定额兑付"));

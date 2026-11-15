@@ -147,6 +147,18 @@ public final class BankActions {
         return "close";
     }
 
+    /** Told in chat, and on the bank screen, before the name is typed. */
+    public static String noteNamePrompt(String regime) {
+        String kind = regimeToken(regime);
+        String label = switch (kind) {
+            case "peg" -> "联系汇率制";
+            case "hard" -> "固定汇率制";
+            default -> "浮动汇率制";
+        };
+        return "请在这条命令后面输入个人银行券的名字，然后按回车。你选的是" + label
+                + "。名字最多三个汉字或英文字母。";
+    }
+
     /** Chat text, including the leading slash and a trailing space for the name. */
     public static String noteNameCommand(String regime) {
         String kind = switch (regime == null ? "" : regime) {

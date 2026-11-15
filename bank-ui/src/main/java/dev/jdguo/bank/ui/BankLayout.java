@@ -96,9 +96,86 @@ public final class BankLayout {
         return new Box(label, screenWidth - EDGE - width, y, width, BUTTON_HEIGHT);
     }
 
-    /** Both top buttons are reserved even when management is not shown. */
-    public static int contentTop(boolean admin) {
-        return EDGE + BUTTON_HEIGHT + TOP_GAP + BUTTON_HEIGHT + GAP;
+    /**
+     * Player pages start under 个人发行. 中央银行管理 is a separate screen,
+     * so this gap does not reserve a second top button.
+     */
+    public static int contentTop() {
+        return EDGE + BUTTON_HEIGHT + GAP;
+    }
+
+    /**
+     * Drawers stay in the upper part of the main column. The amount, the 1/5/10/64 row,
+     * and the confirm button stay on their own rows underneath, whether a drawer is open or not.
+     */
+    public record PlayerControls(int drawerY, int fieldY, int quickY, int actionY) {
+        public Band band() {
+            return new Band(drawerY, 20, fieldY, quickY, actionY);
+        }
+
+        public boolean amountBelowDrawers(int drawerRows) {
+            int rows = Math.max(1, drawerRows);
+            int lastDrawer = drawerY + (rows - 1) * 24;
+            return lastDrawer + 38 <= fieldY && fieldY + 16 <= quickY && quickY + 18 <= actionY;
+        }
+    }
+
+    public static PlayerControls playerControls(int screenHeight, int drawerRows) {
+        int rows = Math.max(1, drawerRows);
+        int bottom = contentBottom(screenHeight);
+        int drawerY = contentTop() + 26;
+        int openSlot = 20 + 72;
+        int fieldY = drawerY + (rows - 1) * 24 + openSlot + 12;
+        int quickY = fieldY + 16;
+        int actionY = quickY + 18;
+        if (actionY + 18 > bottom) {
+            int overflow = actionY + 18 - bottom;
+            openSlot = Math.max(38, openSlot - overflow);
+            fieldY = drawerY + (rows - 1) * 24 + openSlot + 12;
+            quickY = fieldY + 16;
+            actionY = quickY + 18;
+        }
+        if (actionY + 18 > bottom) {
+            int lift = Math.min(actionY + 18 - bottom, Math.max(0, drawerY - contentTop()));
+            drawerY -= lift;
+            fieldY -= lift;
+            quickY -= lift;
+            actionY -= lift;
+        }
+        return new PlayerControls(drawerY, fieldY, quickY, actionY);
+    }
+
+    /** Quotes, ledger, currency list, stepper, and the extra actions, with gaps between them. */
+    public record AdminBands(int quoteY, int bookY, int bookH, int listY, int listH, int stepperY, int extraY) {
+        public boolean separated() {
+            return bookH >= 24
+                    && bookY >= quoteY + 24
+                    && bookY + bookH + 4 <= listY
+                    && listH >= 36
+                    && listY + listH + 4 <= stepperY
+                    && stepperY + 20 <= extraY;
+        }
+    }
+
+    public static AdminBands adminBands(int screenHeight) {
+        int quoteY = EDGE;
+        int extraY = closeY(screenHeight) - GAP - BUTTON_HEIGHT;
+        int stepperY = extraY - GAP - BUTTON_HEIGHT;
+        int listH = 72;
+        int listY = stepperY - GAP - listH;
+        int bookY = quoteY + 28;
+        int bookH = listY - GAP - bookY;
+        if (bookH < 24) {
+            listH = 36;
+            listY = stepperY - GAP - listH;
+            bookY = quoteY + 28;
+            bookH = Math.max(24, listY - GAP - bookY);
+        }
+        if (listY < bookY + 24) {
+            listY = bookY + 24;
+            listH = Math.max(36, stepperY - GAP - listY);
+        }
+        return new AdminBands(quoteY, bookY, bookH, listY, listH, stepperY, extraY);
     }
 
     public static Box closeBox(int screenWidth, int screenHeight) {

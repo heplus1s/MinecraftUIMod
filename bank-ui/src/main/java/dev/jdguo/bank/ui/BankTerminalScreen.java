@@ -84,14 +84,16 @@ public final class BankTerminalScreen extends Screen {
         backedButton = null;
         managementPane = null;
         managementBookBeside = false;
-        boolean admin = BankSnapshot.admin(data);
+        if (page == Page.MANAGEMENT || page == Page.MANAGEMENT_ADJUST) {
+            page = Page.SAVINGS;
+        }
         if (page == Page.CONFIRM) {
-            addTopButtons(admin);
+            addTopButtons();
             addClose();
             initConfirm();
             return;
         }
-        addChrome(admin);
+        addChrome();
         switch (page) {
             case DEPOSIT -> initMoney(BankSnapshot.currencies(data), true, "确认存入");
             case WITHDRAW -> initMoney(BankSnapshot.currencies(data), true, "确认取出");
@@ -101,36 +103,23 @@ public final class BankTerminalScreen extends Screen {
             case MARKET -> initMarket();
             case ISSUANCE -> initIssuance();
             case ISSUANCE_SWITCH -> initIssuanceSwitch();
-            case MANAGEMENT -> initManagement();
-            case MANAGEMENT_ADJUST -> initAdjust();
             default -> {
             }
         }
     }
 
-    private void addChrome(boolean admin) {
-        addTopButtons(admin);
+    private void addChrome() {
+        addTopButtons();
         addRow(BankChrome.ROW_ONE, BankLayout.row1Y(this.height));
         addRow(BankChrome.ROW_TWO, BankLayout.row2Y(this.height));
         addClose();
     }
 
-    private void addTopButtons(boolean admin) {
+    private void addTopButtons() {
         int issueWidth = buttonWidth(BankChrome.ISSUANCE);
         BankLayout.Box issue = BankLayout.topRight(this.width, BankLayout.EDGE, BankChrome.ISSUANCE, issueWidth);
         addDrawableChild(ButtonWidget.builder(Text.literal(issue.label()), button -> open(Page.ISSUANCE))
                 .dimensions(issue.x(), issue.y(), issue.width(), issue.height()).build());
-        if (!admin) {
-            return;
-        }
-        int manageWidth = Math.max(120, buttonWidth(BankChrome.MANAGEMENT));
-        int y = BankLayout.EDGE + BankLayout.BUTTON_HEIGHT + BankLayout.TOP_GAP;
-        BankLayout.Box manage = BankLayout.topRight(this.width, y, BankChrome.MANAGEMENT, manageWidth);
-        if (manage.x() < mainLeft()) {
-            manage = new BankLayout.Box(manage.label(), mainLeft(), manage.y(), manage.width(), manage.height());
-        }
-        addDrawableChild(ButtonWidget.builder(Text.literal(manage.label()), button -> open(Page.MANAGEMENT))
-                .dimensions(manage.x(), manage.y(), manage.width(), manage.height()).build());
     }
 
     private void addRow(List<String> labels, int y) {
@@ -155,37 +144,35 @@ public final class BankTerminalScreen extends Screen {
 
     private void initMoney(List<BankSnapshot.MoneyRow> rows, boolean includeAll, String verb) {
         ensurePay(rows);
-        int y = contentTop() + 28;
-        y = placeDrawer("pay", centerX(listWidth()), y, listWidth(), moneyChoices(rows), payId, fieldLimit(1));
-        addAmountBlockAt(y, includeAll, verb);
+        useControls(1);
+        placeDrawer("pay", centerX(listWidth()), pageBand.listTop(), listWidth(), moneyChoices(rows), payId);
+        addAmountBlock(includeAll, verb);
     }
 
     private void initExchange() {
         List<ChoiceListWidget.Choice> rows = exchangeChoices();
         ensureExchangeIds(rows);
-        int y = contentTop() + 36;
+        useControls(1);
         int[] columns = twoColumns();
-        int limit = fieldLimit(1);
-        int payBottom = placeDrawer("pay", columns[0], y, columns[2], rows, payId, limit);
-        int receiveBottom = placeDrawer("receive", columns[1], y, columns[2], rows, receiveId, limit);
-        addAmountBlockAt(Math.max(payBottom, receiveBottom), false, "确认兑换");
+        placeDrawer("pay", columns[0], pageBand.listTop(), columns[2], rows, payId);
+        placeDrawer("receive", columns[1], pageBand.listTop(), columns[2], rows, receiveId);
+        addAmountBlock(false, "确认兑换");
     }
 
     private void initIssue() {
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
-        int y = contentTop() + 36;
+        useControls(1);
         int[] columns = twoColumns();
-        int limit = fieldLimit(1);
-        int payBottom = placeDrawer("pay", columns[0], y, columns[2], moneyChoices(rows), payId, limit);
-        int payeeBottom = placeDrawer("payee", columns[1], y, columns[2], List.of(
+        placeDrawer("pay", columns[0], pageBand.listTop(), columns[2], moneyChoices(rows), payId);
+        placeDrawer("payee", columns[1], pageBand.listTop(), columns[2], List.of(
                 new ChoiceListWidget.Choice("bearer", "持票人兑付"),
-                new ChoiceListWidget.Choice("self", "仅本人兑付")), payeeSelf ? "self" : "bearer", limit);
-        addAmountBlockAt(Math.max(payBottom, payeeBottom), false, "确认开立汇票");
+                new ChoiceListWidget.Choice("self", "仅本人兑付")), payeeSelf ? "self" : "bearer");
+        addAmountBlock(false, "确认开立汇票");
     }
 
     private void initRedeem() {
-        pageBand = BankLayout.band(contentTop(), BankLayout.contentBottom(this.height), 28);
+        useControls(1);
         String label = BankActions.MAIN_HAND_BUTTON;
         int width = buttonWidth(label);
         int x = mainLeft() + Math.max(0, (mainWidth() - width) / 2);
@@ -196,39 +183,39 @@ public final class BankTerminalScreen extends Screen {
     private void initMarket() {
         List<BankSnapshot.NoteRow> notes = BankSnapshot.notes(data);
         ensureNote(notes);
-        int y = contentTop() + 28;
-        int limit = fieldLimit(1);
-        y = placeDrawer("mode", centerX(listWidth()), y, listWidth(), List.of(
+        useControls(2);
+        int y = pageBand.listTop();
+        placeDrawer("mode", centerX(listWidth()), y, listWidth(), List.of(
                 new ChoiceListWidget.Choice("buy", "买入"),
                 new ChoiceListWidget.Choice("sell", "卖出"),
                 new ChoiceListWidget.Choice("swap", "互换"),
-                new ChoiceListWidget.Choice("redeem", "通兑")), marketMode, limit);
+                new ChoiceListWidget.Choice("redeem", "通兑")), marketMode);
+        y += 24;
         if ("swap".equals(marketMode)) {
             int[] columns = twoColumns();
-            int noteBottom = placeDrawer("note", columns[0], y, columns[2], noteChoices(notes), noteName, limit);
-            int otherBottom = placeDrawer("other", columns[1], y, columns[2], noteChoices(notes), otherNote, limit);
-            y = Math.max(noteBottom, otherBottom);
+            placeDrawer("note", columns[0], y, columns[2], noteChoices(notes), noteName);
+            placeDrawer("other", columns[1], y, columns[2], noteChoices(notes), otherNote);
         } else if ("redeem".equals(marketMode)) {
             List<BankSnapshot.MoneyRow> rows = BankSnapshot.hardCurrencies(data);
             if (findMoney(rows, receiveId) == null) {
                 receiveId = currencyId(rows, "银行券", "note");
             }
             int[] columns = twoColumns();
-            int noteBottom = placeDrawer("note", columns[0], y, columns[2], noteChoices(notes), noteName, limit);
-            int payoutBottom = placeDrawer("receive", columns[1], y, columns[2], moneyChoices(rows), receiveId, limit);
-            y = Math.max(noteBottom, payoutBottom);
+            placeDrawer("note", columns[0], y, columns[2], noteChoices(notes), noteName);
+            placeDrawer("receive", columns[1], y, columns[2], moneyChoices(rows), receiveId);
         } else {
-            y = placeDrawer("note", centerX(listWidth()), y, listWidth(), noteChoices(notes), noteName, limit);
+            placeDrawer("note", centerX(listWidth()), y, listWidth(), noteChoices(notes), noteName);
         }
-        addAmountBlockAt(y, false, marketVerb());
+        addAmountBlock(false, marketVerb());
     }
 
     private void initIssuance() {
         if (!BankSnapshot.hasPersonal(data)) {
-            placeDrawer("regime", centerX(listWidth()), contentTop() + 36, listWidth(), List.of(
+            useControls(1);
+            placeDrawer("regime", centerX(listWidth()), pageBand.listTop(), listWidth(), List.of(
                     new ChoiceListWidget.Choice("float", "浮动汇率制"),
                     new ChoiceListWidget.Choice("peg", "联系汇率制"),
-                    new ChoiceListWidget.Choice("hard", "固定汇率制")), "float", BankLayout.contentBottom(this.height) - 8);
+                    new ChoiceListWidget.Choice("hard", "固定汇率制")), "float");
             return;
         }
         addDrawableChild(textButton("宣告破产", mainLeft(), contentTop(), () -> {
@@ -240,6 +227,7 @@ public final class BankTerminalScreen extends Screen {
         if (BankSnapshot.bankrupt(data)) {
             return;
         }
+        useControls(1);
         addAmountBlock(false, null);
         addEdgeButton("按准备金发行", true, () -> sendAmount(BankActions::noteIssue));
         addEdgeButton("无准备金虚发", false, () -> sendAmount(BankActions::noteUnbacked));
@@ -254,110 +242,9 @@ public final class BankTerminalScreen extends Screen {
         }
     }
 
-    private void initManagement() {
-        if (!BankSnapshot.admin(data)) {
-            page = Page.SAVINGS;
-            return;
-        }
-        String label = "进入货币调整";
-        int width = Math.min(mainWidth(), buttonWidth(label));
-        addDrawableChild(ButtonWidget.builder(Text.literal(label), button -> open(Page.MANAGEMENT_ADJUST))
-                .dimensions(centerX(width), BankLayout.contentBottom(this.height) - 22, width, 18).build());
-    }
-
-    private void initAdjust() {
-        if (!BankSnapshot.admin(data)) {
-            page = Page.SAVINGS;
-            return;
-        }
-        List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
-        ensurePay(rows);
-        int rowsOfButtons = 7;
-        int buttonY = BankLayout.contentBottom(this.height) - 22 * rowsOfButtons;
-        int fieldY = buttonY - 24;
-        pageBand = new BankLayout.Band(0, 0, fieldY, fieldY, buttonY);
-        int y = contentTop() + 40;
-        placeFixedList("pay", centerX(listWidth()), y, listWidth(), moneyChoices(rows), payId, fieldY - 14);
-        int fieldWidth = Math.min(160, Math.max(80, mainWidth() / 2));
-        amount = new TextFieldWidget(textRenderer, centerX(fieldWidth), fieldY, fieldWidth, 16, Text.literal("数值管理"));
-        amount.setMaxLength(32);
-        amount.setText(amountText == null || amountText.isBlank() ? "1" : amountText);
-        addDrawableChild(amount);
-        String name = adjustName();
-        String qty = currentAmount();
-        int x = mainLeft();
-        int width = Math.max(40, mainWidth());
-        plusButton = actionButton(plusLabel(qty, name), x, buttonY, width, () -> sendAdjust(BankActions::adminBackedAmount));
-        unbackedButton = actionButton(unbackedLabel(qty, name), x, buttonY + 22, width, () -> sendAdjust(BankActions::adminUnbacked));
-        retireButton = actionButton(minusLabel(qty, name), x, buttonY + 44, width, () -> sendAdjust(BankActions::adminRetire));
-        fromDepositsButton = actionButton(fromDepositsLabel(qty, name), x, buttonY + 66, width,
-                () -> sendAdjust(BankActions::adminReserveFromDeposits));
-        toDepositsButton = actionButton(toDepositsLabel(qty, name), x, buttonY + 88, width,
-                () -> sendAdjust(BankActions::adminReserveToDeposits));
-        addDrawableChild(plusButton);
-        addDrawableChild(unbackedButton);
-        addDrawableChild(retireButton);
-        addDrawableChild(fromDepositsButton);
-        addDrawableChild(toDepositsButton);
-        addDrawableChild(ButtonWidget.builder(Text.literal(BankBook.freezeButton(data)), button -> send(BankActions.adminFreeze()))
-                .dimensions(x, buttonY + 110, width, 18).build());
-        backedButton = ButtonWidget.builder(Text.literal("按准备金满额发行 " + name), button -> {
-            String currency = selected("pay", payId);
-            if (currency == null || currency.isBlank()) {
-                notice = "请先在列表中选择一项。";
-                return;
-            }
-            send(BankActions.adminBacked(currency));
-        }).dimensions(x, buttonY + 132, width, 18).build();
-        addDrawableChild(backedButton);
-        addDrawableChild(textButton("返回总账", mainRight() - buttonWidth("返回总账"), contentTop(), () -> open(Page.MANAGEMENT)));
-    }
-
-    private ButtonWidget actionButton(String label, int x, int y, int width, Runnable action) {
-        return ButtonWidget.builder(Text.literal(label), button -> action.run()).dimensions(x, y, width, 18).build();
-    }
-
-    private void sendAdjust(java.util.function.BiFunction<String, String, String> command) {
-        captureSelections();
-        String currency = selected("pay", payId);
-        if (currency == null || currency.isBlank()) {
-            notice = "请先在列表中选择一项。";
-            return;
-        }
-        String quantity = currentAmount();
-        if (!typedAmount(quantity)) {
-            notice = "请在数值管理里输入要增加或减少的数量。";
-            return;
-        }
-        notice = "";
-        send(command.apply(currency, quantity));
-    }
-
-    private static boolean typedAmount(String quantity) {
-        if (quantity == null || quantity.isBlank() || "all".equalsIgnoreCase(quantity) || "全部".equals(quantity)) {
-            return false;
-        }
-        return BankRates.parse(quantity) != null && BankRates.parse(quantity).signum() > 0;
-    }
-
-    private static String plusLabel(String quantity, String currency) {
-        return "＋ 按准备金发行 " + quantity + " " + currency;
-    }
-
-    private static String unbackedLabel(String quantity, String currency) {
-        return "无准备金增发 " + quantity + " " + currency;
-    }
-
-    private static String minusLabel(String quantity, String currency) {
-        return "－ 从流通中注销 " + quantity + " " + currency;
-    }
-
-    private static String fromDepositsLabel(String quantity, String currency) {
-        return "从存款转入准备金 " + quantity + " " + currency;
-    }
-
-    private static String toDepositsLabel(String quantity, String currency) {
-        return "从准备金转回存款 " + quantity + " " + currency;
+    private void useControls(int drawerRows) {
+        BankLayout.PlayerControls controls = BankLayout.playerControls(this.height, drawerRows);
+        pageBand = controls.band();
     }
 
     private void initIssuanceSwitch() {
@@ -387,52 +274,23 @@ public final class BankTerminalScreen extends Screen {
         }
     }
 
-    private int fieldLimit(int buttonRows) {
-        int buttonsTop = BankLayout.contentBottom(this.height) - 22 * Math.max(1, buttonRows);
-        return buttonsTop - 22 - 20;
-    }
-
-    private int placeDrawer(String role, int x, int y, int width, List<ChoiceListWidget.Choice> choices, String selected, int limit) {
+    /**
+     * A collapsed drawer is only its header, so the amount row does not move.
+     * Opening it paints the options downward, and stops before that amount row.
+     */
+    private void placeDrawer(String role, int x, int y, int width, List<ChoiceListWidget.Choice> choices, String selected) {
         boolean open = role.equals(openDrawer);
-        int gap = "note".equals(role) ? 28 : 16;
-        int height = BankLayout.drawerHeight(open, choices.size());
-        if (y + height + gap > limit) {
-            height = Math.max(20, limit - gap - y);
+        int height = 20;
+        if (open) {
+            int ceiling = pageBand == null ? y + BankLayout.drawerHeight(true, choices.size()) : pageBand.fieldY() - 12;
+            int room = ceiling - y;
+            int wanted = BankLayout.drawerHeight(true, choices.size());
+            height = Math.min(wanted, Math.max(20, room));
+            if (height < 38 && room >= 38) {
+                height = 38;
+            }
         }
         place(role, x, y, width, height, choices, selected);
-        return y + height + gap;
-    }
-
-    /** Value adjustments keep an open framed list. Option pickers use drawers. */
-    private int placeFixedList(String role, int x, int y, int width, List<ChoiceListWidget.Choice> choices, String selected, int limit) {
-        int height = Math.min(72, Math.max(54, choices.size() * 18 + 4));
-        if (y + height + 16 > limit) {
-            height = Math.max(36, limit - 16 - y);
-        }
-        if (width < 40 || height < 16) {
-            return y + 16;
-        }
-        ChoiceListWidget widget = new ChoiceListWidget(client, x, y, width, height);
-        widget.setDrawer(false);
-        widget.setChoices(choices);
-        widget.select(selected);
-        addSelectableChild(widget);
-        placed.add(new Placed(role, widget, x, y, width, height));
-        return y + height + 16;
-    }
-
-    private void addAmountBlockAt(int y, boolean includeAll, String verb) {
-        int fieldY = y;
-        int quickY = fieldY + 20;
-        int actionY = quickY + 22;
-        if (actionY + 18 > BankLayout.contentBottom(this.height)) {
-            int shift = actionY + 18 - BankLayout.contentBottom(this.height);
-            fieldY -= shift;
-            quickY -= shift;
-            actionY -= shift;
-        }
-        pageBand = new BankLayout.Band(0, 0, fieldY, quickY, actionY);
-        addAmountBlock(includeAll, verb);
     }
 
     private String adjustName() {
@@ -528,11 +386,7 @@ public final class BankTerminalScreen extends Screen {
         drawColumn(context);
         drawPage(context);
         super.render(context, mouseX, mouseY, delta);
-        refreshAdjustLabels();
         for (Placed item : placed) {
-            context.fill(item.x, item.y, item.x + item.width, item.y + item.height, 0xF0101014);
-            context.fill(item.x, item.y, item.x + item.width, item.y + 1, 0xFF8A7040);
-            context.fill(item.x, item.y + item.height - 1, item.x + item.width, item.y + item.height, 0xFF8A7040);
             if (page == Page.EXCHANGE && ("pay".equals(item.role) || "receive".equals(item.role))) {
                 context.drawText(textRenderer, "pay".equals(item.role) ? "付出" : "得到", item.x, item.y - 11, 0xFFE8D090, false);
             }
@@ -632,11 +486,12 @@ public final class BankTerminalScreen extends Screen {
         int x = mainLeft() + buttonWidth("宣告破产") + 10;
         context.drawText(textRenderer, "个人发行", x, contentTop(), 0xFFD0B060, false);
         if (!BankSnapshot.hasPersonal(data)) {
-            drawWrapped(context, "还没有记名。点选浮动汇率制、联系汇率制或固定汇率制后，在聊天框里补上名字再回车。名字最多三个汉字或英文字母。",
-                    mainLeft(), contentTop() + 16, mainWidth(), 0xFFE6E6E6);
-            int essay = contentTop() + 56;
+            Placed regime = placed("regime");
+            int textY = regime == null ? contentTop() + 28 : regime.y + 24;
+            textY = drawWrapped(context, "还没有记名。点选一种发行制度后，聊天框会先说明要输入个人银行券的名字。名字写在命令后面，再按回车。",
+                    mainLeft(), textY, mainWidth(), 0xFFE6E6E6);
             for (String rule : BankRegimes.rules()) {
-                essay = drawWrapped(context, rule, mainLeft(), essay, mainWidth(), 0xFFAAAAAA);
+                textY = drawWrapped(context, rule, mainLeft(), textY, mainWidth(), 0xFFAAAAAA);
             }
             return;
         }
@@ -742,32 +597,6 @@ public final class BankTerminalScreen extends Screen {
         context.fill(x + width - 1, y, x + width, y + height, 0xFFC8A060);
     }
 
-    private void refreshAdjustLabels() {
-        if (page != Page.MANAGEMENT_ADJUST) {
-            return;
-        }
-        String name = adjustName();
-        String qty = currentAmount();
-        if (plusButton != null) {
-            plusButton.setMessage(Text.literal(plusLabel(qty, name)));
-        }
-        if (unbackedButton != null) {
-            unbackedButton.setMessage(Text.literal(unbackedLabel(qty, name)));
-        }
-        if (retireButton != null) {
-            retireButton.setMessage(Text.literal(minusLabel(qty, name)));
-        }
-        if (fromDepositsButton != null) {
-            fromDepositsButton.setMessage(Text.literal(fromDepositsLabel(qty, name)));
-        }
-        if (toDepositsButton != null) {
-            toDepositsButton.setMessage(Text.literal(toDepositsLabel(qty, name)));
-        }
-        if (backedButton != null) {
-            backedButton.setMessage(Text.literal("按准备金满额发行 " + name));
-        }
-    }
-
     private void drawRedeem(DrawContext context) {
         int y = contentTop() + 8;
         context.drawText(textRenderer, "兑付汇票", mainLeft(), y, 0xFFD0B060, false);
@@ -776,8 +605,12 @@ public final class BankTerminalScreen extends Screen {
 
     private void drawHeading(DrawContext context, String title, String copy) {
         context.drawText(textRenderer, title, mainLeft(), contentTop(), 0xFFD0B060, false);
-        if (copy != null && !copy.isBlank()) {
-            context.drawText(textRenderer, copy, mainLeft(), contentTop() + 12, 0xFFAAAAAA, false);
+        if (copy == null || copy.isBlank()) {
+            return;
+        }
+        int x = mainLeft() + textRenderer.getWidth(title) + 8;
+        if (x + textRenderer.getWidth(copy) <= mainRight()) {
+            context.drawText(textRenderer, copy, x, contentTop(), 0xFFAAAAAA, false);
         }
     }
 
@@ -860,13 +693,20 @@ public final class BankTerminalScreen extends Screen {
                 }
             }
             case "payee" -> payeeSelf = "self".equals(id);
-            case "regime" -> {
-                if (client != null) {
-                    client.setScreen(new ChatScreen(BankActions.noteNameCommand(id)));
-                }
-            }
+            case "regime" -> askForNoteName(id);
             default -> {
             }
+        }
+    }
+
+    private void askForNoteName(String regime) {
+        String prompt = BankActions.noteNamePrompt(regime);
+        notice = prompt;
+        if (client != null && client.inGameHud != null) {
+            client.inGameHud.getChatHud().addMessage(Text.literal(prompt));
+        }
+        if (client != null) {
+            client.setScreen(new ChatScreen(BankActions.noteNameCommand(regime)));
         }
     }
 
@@ -1208,7 +1048,7 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private int contentTop() {
-        return BankLayout.contentTop(BankSnapshot.admin(data) || page == Page.MANAGEMENT);
+        return BankLayout.contentTop();
     }
 
     private int fieldTop() {

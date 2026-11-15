@@ -43,6 +43,42 @@ class ShopQuotesTest {
         JsonObject bare = new JsonObject();
         assertEquals(List.of(new ShopQuotes.Pay("note", "银行券")), ShopQuotes.payCurrencies(bare));
         assertEquals(ShopQuotes.UNAVAILABLE, ShopQuotes.unitPrice(bare, "2", "note"));
+        assertFalse(ShopQuotes.shouldPresent(bare));
+        bare.addProperty("open", true);
+        assertTrue(ShopQuotes.shouldPresent(bare));
+    }
+
+    @Test
+    void listingsKeepServerRowsAndDoNotInventAny() {
+        JsonObject data = new JsonObject();
+        JsonArray listings = new JsonArray();
+        listings.add(listing("minecraft:oak_log", "橡木原木", "0.002", "2.0000", "自然方块"));
+        listings.add(listing("minecraft:bread", "面包", "0.01", null, "食物与饮品"));
+        data.add("listings", listings);
+        data.addProperty("currencyKey", "note");
+
+        List<ShopQuotes.Item> items = ShopQuotes.items(data);
+        assertEquals(2, items.size());
+        assertEquals(List.of("自然方块", "食物与饮品"), ShopQuotes.categories(items));
+        assertEquals("2.0000", ShopQuotes.due(data, items.get(0), "note"));
+        assertEquals(ShopQuotes.UNAVAILABLE, ShopQuotes.due(data, items.get(1), "zhang"));
+        assertTrue(ShopQuotes.items(new JsonObject()).isEmpty());
+        assertEquals(ShopLayout.frameX(800), ShopLayout.frameX(800));
+        assertEquals(ShopLayout.frameY(1), ShopLayout.frameY(1));
+        assertTrue(ShopLayout.currencyHeight(true, 3) > ShopLayout.currencyHeight(false, 3));
+        assertEquals(ShopLayout.frameH(400, 1), ShopLayout.frameH(400, 1));
+    }
+
+    private static JsonObject listing(String item, String name, String diamond, String notes, String category) {
+        JsonObject row = new JsonObject();
+        row.addProperty("item", item);
+        row.addProperty("name", name);
+        row.addProperty("diamond", diamond);
+        if (notes != null) {
+            row.addProperty("notes", notes);
+        }
+        row.addProperty("category", category);
+        return row;
     }
 
     private static JsonObject sample() {

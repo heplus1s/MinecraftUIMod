@@ -14,7 +14,7 @@ import java.util.List;
 final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWidget.Row> {
     static final int HEADER = 20;
     private static final int FRAME = 0xFFC8A060;
-    private static final int FILL = 0xF0101014;
+    private static final int FILL = 0xFF101014;
 
     private boolean drawer = true;
     private boolean expanded;
@@ -69,7 +69,7 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         if (label.isBlank()) {
             label = "尚未选择";
         }
-        context.drawText(client.textRenderer, label, this.left + 6, this.top + 6, 0xFFE8E8E8, false);
+        context.drawText(client.textRenderer, label, this.left + 6, this.top + 6, 0xFFFFFFFF, true);
         String cue = expanded ? "收起" : "展开";
         int cueWidth = client.textRenderer.getWidth(cue);
         context.drawText(client.textRenderer, cue, this.right - cueWidth - 6, this.top + 6, 0xFFE8D090, false);
@@ -234,7 +234,7 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
             if (selected || hovered) {
                 context.fill(x, y, x + entryWidth, y + entryHeight - 1, selected ? 0xAA3A5A38 : 0x66333333);
             }
-            context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, x + 4, y + 4, 0xFFE8E8E8, false);
+            context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, x + 4, y + 4, 0xFFFFFFFF, true);
         }
 
         @Override

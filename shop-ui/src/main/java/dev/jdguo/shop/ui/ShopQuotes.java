@@ -23,7 +23,10 @@ public final class ShopQuotes {
     public record Pay(String id, String label) {
     }
 
-    public record Item(String id, String name, String diamondPrice) {
+    public record Item(String id, String name, String diamondPrice, String notes, String category) {
+        public Item(String id, String name, String diamondPrice) {
+            this(id, name, diamondPrice, null, null);
+        }
     }
 
     /** 银行券 first, then one slot for each personal note on the snapshot. */
@@ -49,15 +52,52 @@ public final class ShopQuotes {
         return false;
     }
 
+    /** True only when the server asked the screen to open. A join catalog does not. */
+    public static boolean shouldPresent(JsonObject data) {
+        return data != null && data.has("open") && data.get("open").isJsonPrimitive() && data.get("open").getAsBoolean();
+    }
+
     public static List<Item> items(JsonObject data) {
         List<Item> rows = new ArrayList<>();
-        for (JsonObject row : array(data, "items")) {
-            String id = text(row, "id");
-            String name = text(row, "name");
-            if (id == null || name == null) {
-                continue;
+        rows.addAll(readItems(data, "listings", "item"));
+        if (rows.isEmpty()) {
+            rows.addAll(readItems(data, "items", "id"));
+        }
+        return rows;
+    }
+
+    /** Tabs that already have a server row. An empty catalog stays empty. */
+    public static List<String> categories(List<Item> items) {
+        java.util.LinkedHashSet<String> found = new java.util.LinkedHashSet<>();
+        for (Item item : items) {
+            found.add(tab(item));
+        }
+        List<String> order = java.util.List.of(
+                "建筑方块", "染色方块", "自然方块", "功能方块", "红石",
+                "工具与实用物品", "战斗", "食物与饮品", "原材料", "其他");
+        List<String> tabs = new ArrayList<>();
+        for (String name : order) {
+            if (found.remove(name)) {
+                tabs.add(name);
             }
-            rows.add(new Item(id, name, first(row, "diamondPrice", "diamonds", "priceDiamonds")));
+        }
+        tabs.addAll(found);
+        return tabs;
+    }
+
+    public static String tab(Item item) {
+        if (item != null && item.category() != null && !item.category().isBlank()) {
+            return item.category();
+        }
+        return "其他";
+    }
+
+    public static List<Item> inCategory(List<Item> items, String category) {
+        List<Item> rows = new ArrayList<>();
+        for (Item item : items) {
+            if (tab(item).equals(category)) {
+                rows.add(item);
+            }
         }
         return rows;
     }
@@ -85,6 +125,33 @@ public final class ShopQuotes {
             return UNAVAILABLE;
         }
         return figure(inNotes.divide(perNote, 4, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Amount due in the selected currency.
+     * When that currency is the one the server already priced, its {@code notes} figure is used.
+     * Otherwise the diamond anchor is converted, and a missing quote stays 暂无牌价.
+     */
+    public static String due(JsonObject data, Item item, String currencyId) {
+        if (item == null) {
+            return UNAVAILABLE;
+        }
+        if (item.notes() != null && serverCurrency(data, currencyId)) {
+            String shown = figure(parse(item.notes()));
+            return shown == null ? UNAVAILABLE : shown;
+        }
+        return unitPrice(data, item.diamondPrice(), currencyId);
+    }
+
+    public static boolean serverCurrency(JsonObject data, String currencyId) {
+        String key = text(data, "currencyKey");
+        if (key == null) {
+            return NOTE.equals(currencyId);
+        }
+        if (key.equals(currencyId)) {
+            return true;
+        }
+        return NOTE.equals(currencyId) && ("note".equals(key) || "银行券".equals(text(data, "currency")));
     }
 
     /** Quantity times the unit price. A total below one 银行券 is still a real total. */
@@ -144,7 +211,27 @@ public final class ShopQuotes {
     }
 
     static String figure(BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
         return value.setScale(4, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private static List<Item> readItems(JsonObject data, String arrayName, String idKey) {
+        List<Item> rows = new ArrayList<>();
+        for (JsonObject row : array(data, arrayName)) {
+            String id = text(row, idKey);
+            if (id == null) {
+                id = text(row, "id");
+            }
+            String name = text(row, "name");
+            if (id == null || name == null) {
+                continue;
+            }
+            rows.add(new Item(id, name, first(row, "diamond", "anchor", "diamondPrice", "diamonds", "priceDiamonds"),
+                    text(row, "notes"), text(row, "category")));
+        }
+        return rows;
     }
 
     static BigDecimal parse(String raw) {
