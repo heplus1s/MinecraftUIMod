@@ -44,8 +44,9 @@ public final class BankLayout {
     }
 
     /**
-     * Personal-note trade. The second drawer, the balance lines, and the amount rows
-     * start below the first drawer, including when that drawer is open.
+     * Personal-note trade. {@code top} is already below the title and the help line.
+     * Drawers are never moved up into that header. An open list keeps a row area
+     * unless the tab row would otherwise be covered.
      */
     public record MarketStack(int firstY, int firstH, int secondY, int secondH, int fieldY, int quickY, int actionY) {
         public boolean separated(int bottom) {
@@ -57,41 +58,32 @@ public final class BankLayout {
         }
     }
 
-    public static MarketStack marketStack(int screenHeight, boolean firstOpen, int firstRows, boolean secondOpen, int secondRows) {
-        int bottom = contentBottom(screenHeight);
-        int top = contentTop() + 14;
-        int firstH = drawerHeight(firstOpen, firstRows);
-        int secondH = drawerHeight(secondOpen, secondRows);
+    public static MarketStack marketStack(int top, int bottom, boolean firstOpen, int firstRows, boolean secondOpen, int secondRows) {
         int gap = 6;
         int balance = 30;
         int tail = 16 + 4 + 18 + 4 + 18;
+        int firstH = drawerHeight(firstOpen, firstRows);
+        int secondH = drawerHeight(secondOpen, secondRows);
         int overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
         if (overflow > 0 && firstOpen) {
-            firstH = Math.max(20, firstH - overflow);
+            firstH = Math.max(56, firstH - overflow);
             overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
         }
         if (overflow > 0 && secondOpen) {
-            secondH = Math.max(20, secondH - overflow);
+            secondH = Math.max(56, secondH - overflow);
             overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
         }
-        if (overflow > 0) {
-            int lift = Math.min(overflow, Math.max(0, top - contentTop()));
-            top -= lift;
-            overflow -= lift;
+        if (overflow > 0 && firstOpen && firstH > 38) {
+            firstH = Math.max(38, firstH - overflow);
+            overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
         }
-        if (overflow > 0) {
-            firstH = Math.max(20, firstH - overflow);
+        if (overflow > 0 && secondOpen && secondH > 38) {
+            secondH = Math.max(38, secondH - overflow);
         }
         int secondY = top + firstH + gap;
         int fieldY = secondY + secondH + gap + balance;
         int quickY = fieldY + 20;
         int actionY = quickY + 22;
-        if (actionY + 18 > bottom) {
-            int shift = actionY + 18 - bottom;
-            actionY -= shift;
-            quickY -= shift;
-            fieldY -= shift;
-        }
         return new MarketStack(top, firstH, secondY, secondH, fieldY, quickY, actionY);
     }
 
@@ -124,8 +116,9 @@ public final class BankLayout {
         return screenHeight - EDGE - BUTTON_HEIGHT;
     }
 
+    /** Lower function row shares 关闭's top, so their bottom edges line up. */
     public static int row2Y(int screenHeight) {
-        return closeY(screenHeight) - GAP - BUTTON_HEIGHT;
+        return closeY(screenHeight);
     }
 
     public static int row1Y(int screenHeight) {

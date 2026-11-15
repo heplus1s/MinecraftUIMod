@@ -84,6 +84,44 @@ public final class BankRegimes {
         return List.of(SWITCH_NOTE, FLOAT_GATE, PEG_GATE, HARD_GATE);
     }
 
+    /**
+     * Issuance reserve the operator can fund with 存入/取出.
+     * New snapshot fields win. Missing numbers stay 暂无数据. 联系汇率制 also keeps the bank-note reserve.
+     */
+    public static List<String> issuanceHoldings(JsonObject data) {
+        JsonObject note = BankSnapshot.ownNote(data);
+        List<String> lines = new ArrayList<>();
+        String amount = firstKey(note, data, "issuanceReserve", "personalReserves", "personalReserve");
+        String currency = firstKey(note, data, "reserveCurrencyName", "reserveCurrency", "reserveName");
+        if (currency == null) {
+            String anchor = anchorName(first(note, data, "anchor"));
+            if (!BankBook.MISSING.equals(anchor)) {
+                currency = anchor;
+            }
+        }
+        if (amount == null) {
+            lines.add("发行准备金：" + (currency == null ? BankBook.MISSING : currency + " " + BankBook.MISSING));
+        } else if (currency == null) {
+            lines.add(amount("发行准备金", amount));
+        } else {
+            lines.add("发行准备金：" + currency + " " + BankHeader.figure(amount));
+        }
+        String locked = firstKey(note, data, "lockedReserve", "locked");
+        if (locked != null) {
+            lines.add(amount("已锁定", locked));
+        }
+        String free = firstKey(note, data, "freeReserve", "free");
+        if (free != null) {
+            lines.add(amount("可动用", free));
+        }
+        String regime = BankSnapshot.regimeName(data);
+        boolean peg = regime != null && regime.contains("联系");
+        if (peg) {
+            lines.add(amount("央行银行券准备金", firstKey(note, data, "centralReserve", "noteReserve")));
+        }
+        return lines;
+    }
+
     public static List<String> figures(JsonObject data) {
         JsonObject note = BankSnapshot.ownNote(data);
         List<String> lines = new ArrayList<>();
@@ -149,6 +187,16 @@ public final class BankRegimes {
             }
         }
         return rows;
+    }
+
+    private static String firstKey(JsonObject note, JsonObject root, String... keys) {
+        for (String key : keys) {
+            String value = first(note, root, key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private static String first(JsonObject note, JsonObject root, String key) {

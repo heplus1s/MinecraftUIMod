@@ -41,6 +41,10 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         return drawer;
     }
 
+    boolean expanded() {
+        return expanded;
+    }
+
     void setExpanded(boolean expanded) {
         this.expanded = !drawer || expanded;
     }

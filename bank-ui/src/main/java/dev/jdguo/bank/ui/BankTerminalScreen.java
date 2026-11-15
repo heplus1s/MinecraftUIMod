@@ -187,7 +187,9 @@ public final class BankTerminalScreen extends Screen {
         ensureNote(notes);
         List<ChoiceListWidget.Choice> second = noteChoices(notes);
         boolean secondOpen = "note".equals(openDrawer) || "other".equals(openDrawer) || "receive".equals(openDrawer);
-        BankLayout.MarketStack stack = BankLayout.marketStack(this.height, "mode".equals(openDrawer), 4, secondOpen, Math.max(1, second.size()));
+        int headerBottom = marketHeaderBottom();
+        BankLayout.MarketStack stack = BankLayout.marketStack(headerBottom, BankLayout.contentBottom(this.height),
+                "mode".equals(openDrawer), 4, secondOpen, Math.max(1, second.size()));
         pageBand = new BankLayout.Band(stack.firstY(), stack.firstH(), stack.fieldY(), stack.quickY(), stack.actionY());
         marketBalanceY = stack.secondY() + stack.secondH() + 4;
         placeDrawer("mode", centerX(listWidth()), stack.firstY(), listWidth(), List.of(
@@ -231,19 +233,20 @@ public final class BankTerminalScreen extends Screen {
         if (BankSnapshot.bankrupt(data)) {
             return;
         }
-        useControls(1);
+        int textTop = contentTop() + 48;
+        int textBottom = textTop + (2 + BankRegimes.issuanceHoldings(data).size()) * 12 + 6;
+        int fieldY = textBottom;
+        int quickY = fieldY + 20;
+        int rowY = quickY + 22;
+        int edgeY = rowY + 22;
+        pageBand = new BankLayout.Band(textTop, textBottom - textTop, fieldY, quickY, edgeY);
         addAmountBlock(false, null);
-        addEdgeButton("按准备金发行", true, () -> sendAmount(BankActions::noteIssue));
-        addEdgeButton("无准备金虚发", false, () -> sendAmount(BankActions::noteUnbacked));
-        int reserveY = contentTop() + 46;
-        if (reserveY + 20 < fieldTop()) {
-            addDrawableChild(textButton("存入央行准备金", mainLeft() + buttonWidth("宣告破产") + 8, reserveY,
-                    () -> sendAmount(BankActions::reserveDeposit)));
-            int withdrawX = mainLeft() + buttonWidth("宣告破产") + 8 + buttonWidth("存入央行准备金") + 6;
-            if (withdrawX + buttonWidth("取出央行准备金") <= mainRight()) {
-                addDrawableChild(textButton("取出央行准备金", withdrawX, reserveY, () -> sendAmount(BankActions::reserveWithdraw)));
-            }
-        }
+        addDrawableChild(textButton("存入央行准备金", mainLeft(), rowY, () -> sendAmount(BankActions::reserveDeposit)));
+        int withdrawX = mainLeft() + buttonWidth("存入央行准备金") + 6;
+        addDrawableChild(textButton("取出央行准备金", withdrawX, rowY, () -> sendAmount(BankActions::reserveWithdraw)));
+        addDrawableChild(textButton("按准备金发行", mainLeft(), edgeY, () -> sendAmount(BankActions::noteIssue)));
+        int unbackedX = mainRight() - buttonWidth("无准备金虚发");
+        addDrawableChild(textButton("无准备金虚发", unbackedX, edgeY, () -> sendAmount(BankActions::noteUnbacked)));
     }
 
     private void useControls(int drawerRows) {
@@ -434,7 +437,7 @@ public final class BankTerminalScreen extends Screen {
             case EXCHANGE -> drawHeading(context, "硬通货兑换", "按牌价在账户之间兑换。这不是通兑，不动发行人的准备金。");
             case ISSUE -> drawHeading(context, "开立汇票", "选择币种和抬头，再填写开出的数量。");
             case REDEEM -> drawRedeem(context);
-            case MARKET -> drawHeading(context, "个人银行券交易", marketHeading());
+            case MARKET -> drawMarketHeading(context);
             case ISSUANCE -> drawIssuance(context);
             case ISSUANCE_SWITCH -> drawIssuanceSwitch(context);
             case MANAGEMENT -> drawManagement(context);
@@ -503,18 +506,28 @@ public final class BankTerminalScreen extends Screen {
             }
             return;
         }
-        int line = contentTop() + 70;
+        int line = contentTop() + 48;
         int limit = pageBand == null ? BankLayout.contentBottom(this.height) - 12 : pageBand.fieldY() - 2;
         String personal = BankSnapshot.text(data, "personal");
         if (personal != null) {
             context.drawText(textRenderer, "「" + personal + "」", x, contentTop() + 16, 0xFFE8D090, false);
         }
-        for (String row : BankRegimes.figures(data)) {
-            context.drawText(textRenderer, row, mainLeft(), line, row.contains(BankBook.MISSING) || row.contains("暂无牌价") ? 0xFFAAAAAA : 0xFFE6E6E6, false);
-            line += 12;
-            if (line > limit) {
+        String regimeLine = "当前发行制度：" + (BankSnapshot.regimeName(data) == null ? BankBook.MISSING : BankSnapshot.regimeName(data));
+        context.drawText(textRenderer, regimeLine, mainLeft(), line, 0xFFE6E6E6, false);
+        line += 12;
+        JsonObject own = BankSnapshot.ownNote(data);
+        String anchor = own == null ? BankSnapshot.text(data, "anchor") : BankSnapshot.text(own, "anchor");
+        if (anchor == null) {
+            anchor = BankSnapshot.text(data, "anchor");
+        }
+        context.drawText(textRenderer, "锚：" + (anchor == null ? BankBook.MISSING : anchorName(anchor)), mainLeft(), line, 0xFFE6E6E6, false);
+        line += 12;
+        for (String row : BankRegimes.issuanceHoldings(data)) {
+            if (line + 12 > limit) {
                 break;
             }
+            context.drawText(textRenderer, row, mainLeft(), line, row.contains(BankBook.MISSING) ? 0xFFAAAAAA : 0xFFE8D090, false);
+            line += 12;
         }
         String regime = BankSnapshot.regimeName(data);
         String rule = BankRegimes.FLOAT_RULE;
@@ -611,6 +624,51 @@ public final class BankTerminalScreen extends Screen {
         drawWrapped(context, BankActions.MAIN_HAND_BILL, mainLeft(), y + 16, mainWidth(), 0xFFE6E6E6);
     }
 
+    /** Title, then the full help line, both above the drawers. */
+    private int marketHeaderBottom() {
+        int y = contentTop() + 12;
+        String help = marketHeading();
+        int width = Math.max(40, mainWidth());
+        String rest = help == null ? "" : help;
+        while (!rest.isEmpty()) {
+            String part = rest;
+            while (textRenderer.getWidth(part) > width && part.length() > 1) {
+                part = part.substring(0, part.offsetByCodePoints(0, part.codePointCount(0, part.length()) - 1));
+            }
+            y += 12;
+            if (part.equals(rest)) {
+                break;
+            }
+            rest = rest.substring(part.length());
+        }
+        return y + 6;
+    }
+
+    private void drawMarketHeading(DrawContext context) {
+        int x = mainLeft();
+        int y = contentTop();
+        context.drawText(textRenderer, "个人银行券交易", x, y, 0xFFD0B060, false);
+        drawFitted(context, marketHeading(), x, y + 12, mainWidth(), 0xFFAAAAAA);
+    }
+
+    private int drawFitted(DrawContext context, String text, int x, int y, int width, int color) {
+        String rest = text == null ? "" : text;
+        int limit = Math.max(40, width);
+        while (!rest.isEmpty()) {
+            String part = rest;
+            while (textRenderer.getWidth(part) > limit && part.length() > 1) {
+                part = part.substring(0, part.offsetByCodePoints(0, part.codePointCount(0, part.length()) - 1));
+            }
+            context.drawText(textRenderer, part, x, y, color, false);
+            y += 12;
+            if (part.equals(rest)) {
+                break;
+            }
+            rest = rest.substring(part.length());
+        }
+        return y;
+    }
+
     private void drawHeading(DrawContext context, String title, String copy) {
         context.drawText(textRenderer, title, mainLeft(), contentTop(), 0xFFD0B060, false);
         if (copy == null || copy.isBlank()) {
@@ -641,26 +699,50 @@ public final class BankTerminalScreen extends Screen {
         }
     }
 
+    private static String anchorName(String anchor) {
+        String token = BankActions.anchorToken(anchor);
+        if (token == null) {
+            return anchor == null ? BankBook.MISSING : anchor;
+        }
+        return switch (token) {
+            case "diamond" -> "钻石";
+            case "copper" -> "铜锭";
+            default -> "银行券";
+        };
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        for (Placed item : placed) {
-            if (!item.widget.isMouseOver(mouseX, mouseY) || !item.widget.mouseClicked(mouseX, mouseY, button)) {
+        for (var child : children()) {
+            if (child instanceof ChoiceListWidget) {
                 continue;
             }
-            if (item.widget.pollToggle()) {
-                openDrawer = item.role.equals(openDrawer) ? "" : item.role;
-                client.execute(this::clearAndInit);
+            if (child.isMouseOver(mouseX, mouseY) && child.mouseClicked(mouseX, mouseY, button)) {
+                setFocused(child);
                 return true;
             }
-            if (item.widget.pollPick()) {
+        }
+        for (int i = placed.size() - 1; i >= 0; i--) {
+            Placed item = placed.get(i);
+            int visualH = item.widget.isDrawer() && !item.widget.expanded() ? ChoiceListWidget.HEADER : item.height;
+            if (mouseX < item.x || mouseX >= item.x + item.width || mouseY < item.y || mouseY >= item.y + visualH) {
+                continue;
+            }
+            if (item.widget.isDrawer() && mouseY < item.y + ChoiceListWidget.HEADER) {
+                openDrawer = item.role.equals(openDrawer) ? "" : item.role;
+                if (client != null) {
+                    client.execute(this::clearAndInit);
+                }
+                return true;
+            }
+            if (item.widget.mouseClicked(mouseX, mouseY, button) && item.widget.pollPick()) {
                 onList(item);
                 if (item.widget.isDrawer()) {
                     openDrawer = "";
-                    if (!"regime".equals(item.role)) {
+                    if (!"regime".equals(item.role) && client != null) {
                         client.execute(this::clearAndInit);
                     }
                 }
-                return true;
             }
             return true;
         }

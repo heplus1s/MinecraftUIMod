@@ -50,6 +50,33 @@ class BankRegimesTest {
     }
 
     @Test
+    void issuanceReserveUsesNewFieldsAndDoesNotInventANumber() {
+        JsonObject data = new JsonObject();
+        JsonObject note = new JsonObject();
+        note.addProperty("regimeName", "浮动汇率制");
+        note.addProperty("anchor", "diamond");
+        note.addProperty("issuanceReserve", "2001");
+        note.addProperty("reserveCurrencyName", "钻石");
+        note.addProperty("locked", "10");
+        data.add("ownNote", note);
+
+        List<String> lines = BankRegimes.issuanceHoldings(data);
+        assertTrue(lines.contains("发行准备金：钻石 2001"));
+        assertTrue(lines.contains("已锁定：10"));
+        assertFalse(String.join("\n", lines).contains("央行银行券准备金"));
+
+        JsonObject peg = new JsonObject();
+        JsonObject pegNote = new JsonObject();
+        pegNote.addProperty("regimeName", "联系汇率制");
+        pegNote.addProperty("anchor", "note");
+        pegNote.addProperty("centralReserve", "40");
+        peg.add("ownNote", pegNote);
+        List<String> pegLines = BankRegimes.issuanceHoldings(peg);
+        assertTrue(pegLines.contains("央行银行券准备金：40"));
+        assertTrue(pegLines.get(0).contains("暂无数据"));
+    }
+
+    @Test
     void bankruptcyBlocksSwitching() {
         JsonObject data = new JsonObject();
         data.addProperty("bankrupt", true);

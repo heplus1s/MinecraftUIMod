@@ -22,9 +22,18 @@ class BankLayoutTest {
                 for (BankLayout.Box box : boxes) {
                     assertTrue(box.fits(width, height), box.label() + " overflows " + width + "x" + height);
                 }
+                assertEquals(close.y(), tabs.get(3).y(), "lower nav row shares 关闭's row");
+                assertEquals(close.bottom(), tabs.get(3).bottom());
                 for (BankLayout.Box tab : tabs) {
-                    assertTrue(!tab.intersects(close), tab.label() + " hits 关闭");
+                    if (tab.y() != close.y()) {
+                        assertTrue(!tab.intersects(close), tab.label() + " hits 关闭");
+                    }
                     assertTrue(!tab.intersects(issue), tab.label() + " hits 个人发行");
+                }
+                if (width >= 427) {
+                    for (int i = 3; i < tabs.size(); i++) {
+                        assertTrue(!tabs.get(i).intersects(close), tabs.get(i).label() + " hits 关闭");
+                    }
                 }
                 assertTrue(issue.x() >= BankLayout.mainLeft(width));
                 assertTrue(BankLayout.mainLeft(width) > BankLayout.columnRight(width));
@@ -46,20 +55,23 @@ class BankLayoutTest {
                     int openRoom = controls.fieldY() - 12 - (controls.drawerY() + (rows - 1) * 24);
                     assertTrue(openRoom >= 36, "open drawer room " + openRoom + " " + controls);
                 }
+                int headerBottom = BankLayout.contentTop() + 36;
                 for (boolean firstOpen : new boolean[] {false, true}) {
                     for (boolean secondOpen : new boolean[] {false, true}) {
-                        BankLayout.MarketStack market = BankLayout.marketStack(height, firstOpen, 4, secondOpen, 3);
+                        int limit = BankLayout.contentBottom(height);
+                        BankLayout.MarketStack market = BankLayout.marketStack(headerBottom, limit, firstOpen, 4, secondOpen, 3);
+                        assertTrue(market.firstY() >= headerBottom, market.toString());
                         assertTrue(market.secondY() >= market.firstY() + market.firstH() + 4, market.toString());
                         assertTrue(market.fieldY() >= market.secondY() + market.secondH() + 4, market.toString());
                         assertTrue(market.quickY() >= market.fieldY() + 16, market.toString());
                         assertTrue(market.actionY() >= market.quickY() + 18, market.toString());
                         if (height >= 360) {
-                            assertTrue(market.separated(BankLayout.contentBottom(height)), width + "x" + height + " " + market);
+                            assertTrue(market.separated(limit), width + "x" + height + " " + market);
                             if (firstOpen) {
-                                assertTrue(market.firstH() > 20, market.toString());
+                                assertTrue(market.firstH() >= 38, market.toString());
                             }
                             if (secondOpen) {
-                                assertTrue(market.secondH() > 20, market.toString());
+                                assertTrue(market.secondH() >= 38, market.toString());
                             }
                         }
                     }
