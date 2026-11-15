@@ -126,6 +126,10 @@ public final class BankBook {
     }
 
     private static String bookTotal(JsonObject data, String id, BankSnapshot.CentralRow row) {
+        String hard = BankSnapshot.hardBook(data, id, "savingsBook");
+        if (hard != null) {
+            return hard;
+        }
         String root = firstPresent(data, id + "BookSavings", id + "BookTotal");
         if (root != null) {
             return root;
@@ -134,6 +138,10 @@ public final class BankBook {
     }
 
     private static String physicalTotal(JsonObject data, String id, BankSnapshot.CentralRow row) {
+        String hard = BankSnapshot.hardBook(data, id, "depositVault");
+        if (hard != null) {
+            return hard;
+        }
         String root = firstPresent(data, id + "PhysicalSavings", id + "ActualSavings");
         if (root != null) {
             return root;

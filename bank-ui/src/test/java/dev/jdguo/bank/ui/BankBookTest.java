@@ -91,6 +91,18 @@ class BankBookTest {
         List<String> compared = BankBook.visibleLedger(data);
         assertTrue(compared.contains("铜锭储蓄账面总值：10.5000"));
         assertTrue(compared.contains("铜锭实际硬通货储蓄总值：10"));
+        JsonArray hardBooks = new JsonArray();
+        JsonObject copper = new JsonObject();
+        copper.addProperty("id", "copper");
+        copper.addProperty("savingsBook", "20.5");
+        copper.addProperty("depositVault", "18");
+        copper.addProperty("reserve", "999");
+        hardBooks.add(copper);
+        data.add("hardBooks", hardBooks);
+        List<String> fromHardBooks = BankBook.visibleLedger(data);
+        assertTrue(fromHardBooks.contains("铜锭储蓄账面总值：20.5000"));
+        assertTrue(fromHardBooks.contains("铜锭实际硬通货储蓄总值：18"));
+        assertTrue(fromHardBooks.contains("铜锭准备金：1000000"));
     }
 
     private static JsonObject snapshot(boolean frozen) {

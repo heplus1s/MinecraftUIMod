@@ -155,6 +155,19 @@ public final class BankSnapshot {
         return held;
     }
 
+    /** Admin comparison row. {@code key} is {@code savingsBook}, {@code depositVault}, or {@code reserve}. */
+    public static String hardBook(JsonObject data, String id, String key) {
+        if (id == null || key == null) {
+            return null;
+        }
+        for (JsonObject row : array(data, "hardBooks")) {
+            if (id.equals(text(row, "id"))) {
+                return text(row, key);
+            }
+        }
+        return null;
+    }
+
     public static List<CentralRow> central(JsonObject data) {
         List<CentralRow> rows = new ArrayList<>();
         for (JsonObject row : array(data, "central")) {
