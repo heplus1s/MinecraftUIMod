@@ -46,6 +46,24 @@ class BankLayoutTest {
                     int openRoom = controls.fieldY() - 12 - (controls.drawerY() + (rows - 1) * 24);
                     assertTrue(openRoom >= 36, "open drawer room " + openRoom + " " + controls);
                 }
+                for (boolean firstOpen : new boolean[] {false, true}) {
+                    for (boolean secondOpen : new boolean[] {false, true}) {
+                        BankLayout.MarketStack market = BankLayout.marketStack(height, firstOpen, 4, secondOpen, 3);
+                        assertTrue(market.secondY() >= market.firstY() + market.firstH() + 4, market.toString());
+                        assertTrue(market.fieldY() >= market.secondY() + market.secondH() + 4, market.toString());
+                        assertTrue(market.quickY() >= market.fieldY() + 16, market.toString());
+                        assertTrue(market.actionY() >= market.quickY() + 18, market.toString());
+                        if (height >= 360) {
+                            assertTrue(market.separated(BankLayout.contentBottom(height)), width + "x" + height + " " + market);
+                            if (firstOpen) {
+                                assertTrue(market.firstH() > 20, market.toString());
+                            }
+                            if (secondOpen) {
+                                assertTrue(market.secondH() > 20, market.toString());
+                            }
+                        }
+                    }
+                }
                 BankLayout.AdminBands admin = BankLayout.adminBands(width, height);
                 assertTrue(admin.separated(), width + "x" + height + " admin " + admin);
                 assertTrue(admin.centered(width), admin.toString());

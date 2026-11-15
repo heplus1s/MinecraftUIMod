@@ -43,6 +43,58 @@ public final class BankLayout {
         return 20 + Math.min(72, Math.max(36, count * 18));
     }
 
+    /**
+     * Personal-note trade. The second drawer, the balance lines, and the amount rows
+     * start below the first drawer, including when that drawer is open.
+     */
+    public record MarketStack(int firstY, int firstH, int secondY, int secondH, int fieldY, int quickY, int actionY) {
+        public boolean separated(int bottom) {
+            return secondY >= firstY + firstH + 4
+                    && fieldY >= secondY + secondH + 24
+                    && quickY >= fieldY + 16
+                    && actionY >= quickY + 18
+                    && actionY + 18 <= bottom;
+        }
+    }
+
+    public static MarketStack marketStack(int screenHeight, boolean firstOpen, int firstRows, boolean secondOpen, int secondRows) {
+        int bottom = contentBottom(screenHeight);
+        int top = contentTop() + 14;
+        int firstH = drawerHeight(firstOpen, firstRows);
+        int secondH = drawerHeight(secondOpen, secondRows);
+        int gap = 6;
+        int balance = 30;
+        int tail = 16 + 4 + 18 + 4 + 18;
+        int overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
+        if (overflow > 0 && firstOpen) {
+            firstH = Math.max(20, firstH - overflow);
+            overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
+        }
+        if (overflow > 0 && secondOpen) {
+            secondH = Math.max(20, secondH - overflow);
+            overflow = top + firstH + gap + secondH + gap + balance + tail - bottom;
+        }
+        if (overflow > 0) {
+            int lift = Math.min(overflow, Math.max(0, top - contentTop()));
+            top -= lift;
+            overflow -= lift;
+        }
+        if (overflow > 0) {
+            firstH = Math.max(20, firstH - overflow);
+        }
+        int secondY = top + firstH + gap;
+        int fieldY = secondY + secondH + gap + balance;
+        int quickY = fieldY + 20;
+        int actionY = quickY + 22;
+        if (actionY + 18 > bottom) {
+            int shift = actionY + 18 - bottom;
+            actionY -= shift;
+            quickY -= shift;
+            fieldY -= shift;
+        }
+        return new MarketStack(top, firstH, secondY, secondH, fieldY, quickY, actionY);
+    }
+
     public static int labelWidth(String label) {
         return label.codePointCount(0, label.length()) * 12 + 18;
     }

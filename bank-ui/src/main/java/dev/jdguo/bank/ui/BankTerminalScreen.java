@@ -35,6 +35,7 @@ public final class BankTerminalScreen extends Screen {
     private String amountText = "1";
     private String notice = "";
     private String openDrawer = "";
+    private int marketBalanceY = -1;
     private int bookScroll;
     private int bookX;
     private int bookY;
@@ -75,6 +76,7 @@ public final class BankTerminalScreen extends Screen {
     protected void init() {
         amount = null;
         pageBand = null;
+        marketBalanceY = -1;
         placed.clear();
         plusButton = null;
         unbackedButton = null;
@@ -183,28 +185,30 @@ public final class BankTerminalScreen extends Screen {
     private void initMarket() {
         List<BankSnapshot.NoteRow> notes = BankSnapshot.notes(data);
         ensureNote(notes);
-        useControls(2);
-        int y = pageBand.listTop();
-        placeDrawer("mode", centerX(listWidth()), y, listWidth(), List.of(
+        List<ChoiceListWidget.Choice> second = noteChoices(notes);
+        boolean secondOpen = "note".equals(openDrawer) || "other".equals(openDrawer) || "receive".equals(openDrawer);
+        BankLayout.MarketStack stack = BankLayout.marketStack(this.height, "mode".equals(openDrawer), 4, secondOpen, Math.max(1, second.size()));
+        pageBand = new BankLayout.Band(stack.firstY(), stack.firstH(), stack.fieldY(), stack.quickY(), stack.actionY());
+        marketBalanceY = stack.secondY() + stack.secondH() + 4;
+        placeDrawer("mode", centerX(listWidth()), stack.firstY(), listWidth(), List.of(
                 new ChoiceListWidget.Choice("buy", "买入"),
                 new ChoiceListWidget.Choice("sell", "卖出"),
                 new ChoiceListWidget.Choice("swap", "互换"),
-                new ChoiceListWidget.Choice("redeem", "通兑")), marketMode);
-        y += 24;
+                new ChoiceListWidget.Choice("redeem", "通兑")), marketMode, stack.firstH());
         if ("swap".equals(marketMode)) {
             int[] columns = twoColumns();
-            placeDrawer("note", columns[0], y, columns[2], noteChoices(notes), noteName);
-            placeDrawer("other", columns[1], y, columns[2], noteChoices(notes), otherNote);
+            placeDrawer("note", columns[0], stack.secondY(), columns[2], second, noteName, stack.secondH());
+            placeDrawer("other", columns[1], stack.secondY(), columns[2], second, otherNote, stack.secondH());
         } else if ("redeem".equals(marketMode)) {
             List<BankSnapshot.MoneyRow> rows = BankSnapshot.hardCurrencies(data);
             if (findMoney(rows, receiveId) == null) {
                 receiveId = currencyId(rows, "银行券", "note");
             }
             int[] columns = twoColumns();
-            placeDrawer("note", columns[0], y, columns[2], noteChoices(notes), noteName);
-            placeDrawer("receive", columns[1], y, columns[2], moneyChoices(rows), receiveId);
+            placeDrawer("note", columns[0], stack.secondY(), columns[2], second, noteName, stack.secondH());
+            placeDrawer("receive", columns[1], stack.secondY(), columns[2], moneyChoices(rows), receiveId, stack.secondH());
         } else {
-            placeDrawer("note", centerX(listWidth()), y, listWidth(), noteChoices(notes), noteName);
+            placeDrawer("note", centerX(listWidth()), stack.secondY(), listWidth(), second, noteName, stack.secondH());
         }
         addAmountBlock(false, marketVerb());
     }
@@ -279,9 +283,13 @@ public final class BankTerminalScreen extends Screen {
      * Opening it paints the options downward, and stops before that amount row.
      */
     private void placeDrawer(String role, int x, int y, int width, List<ChoiceListWidget.Choice> choices, String selected) {
+        placeDrawer(role, x, y, width, choices, selected, -1);
+    }
+
+    private void placeDrawer(String role, int x, int y, int width, List<ChoiceListWidget.Choice> choices, String selected, int fixedHeight) {
         boolean open = role.equals(openDrawer);
-        int height = 20;
-        if (open) {
+        int height = fixedHeight > 0 ? fixedHeight : 20;
+        if (fixedHeight <= 0 && open) {
             int ceiling = pageBand == null ? y + BankLayout.drawerHeight(true, choices.size()) : pageBand.fieldY() - 12;
             int room = ceiling - y;
             int wanted = BankLayout.drawerHeight(true, choices.size());
@@ -623,12 +631,13 @@ public final class BankTerminalScreen extends Screen {
         if (!showsBalance(item.role)) {
             return;
         }
+        int textY = marketBalanceY >= 0 ? marketBalanceY : item.y + item.height + 2;
         String line = balanceCaption(item) + BankSnapshot.balancePhrase(balanceFor(item.role, item.widget.selectedId()));
-        context.drawText(textRenderer, line, item.x, item.y + item.height + 2, 0xFFB7C7B0, false);
+        context.drawText(textRenderer, line, item.x, textY, 0xFFB7C7B0, false);
         if ("note".equals(item.role)) {
             BankSnapshot.NoteRow note = findNote(item.widget.selectedId());
             String quote = note == null || note.price() == null ? BankRates.UNAVAILABLE : "现价：" + BankHeader.figure(note.price());
-            context.drawText(textRenderer, quote, item.x, item.y + item.height + 14, note == null || note.price() == null ? 0xFFAAAAAA : 0xFFE8D090, false);
+            context.drawText(textRenderer, quote, item.x, textY + 12, note == null || note.price() == null ? 0xFFAAAAAA : 0xFFE8D090, false);
         }
     }
 
