@@ -25,15 +25,44 @@ public final class BankHeader {
 
     public static List<String> lines(JsonObject data) {
         List<String> lines = new ArrayList<>();
-        lines.add("M0 " + fixed6(text(data, "m0")));
-        lines.add("M1 " + fixed6(text(data, "m1")));
-        lines.add("M2 " + fixed6(text(data, "m2")));
-        lines.add(rateLine(rateValue(data)));
+        lines.add(rateLine(centralRateRaw(data)));
         String status = text(data, "status");
         if (showStatus(status)) {
             lines.add(status);
         }
         return lines;
+    }
+
+    /** M0, M1, and M2 belong only on the central-bank management page. Integers drop a trailing decimal run. */
+    public static List<String> managementAggregates(JsonObject data) {
+        return List.of(
+                "流通中现金（M0）：" + figure(text(data, "m0")),
+                "狭义货币（M1）：" + figure(text(data, "m1")),
+                "广义货币（M2）：" + figure(text(data, "m2")));
+    }
+
+    /**
+     * Money to four decimal places. A whole number, including zero, drops the decimal run,
+     * so {@code 0} stays {@code 0} and {@code 0.2500} stays {@code 0.2500}.
+     */
+    public static String figure(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "暂无数据";
+        }
+        java.math.BigDecimal parsed = BankRates.parse(raw);
+        if (parsed == null) {
+            return raw.trim();
+        }
+        java.math.BigDecimal scaled = parsed.setScale(4, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal whole = scaled.stripTrailingZeros();
+        if (whole.scale() <= 0) {
+            return whole.setScale(0).toPlainString();
+        }
+        return scaled.toPlainString();
+    }
+
+    public static String centralRateRaw(JsonObject data) {
+        return rateValue(data);
     }
 
     /**
@@ -57,7 +86,7 @@ public final class BankHeader {
             }
         }
         List<String> kept = new ArrayList<>();
-        kept.add(rate == null ? "汇率 —" : rate);
+        kept.add(rate == null ? "汇率  暂无牌价" : rate);
         if (status != null) {
             kept.add(status);
         }
@@ -69,7 +98,8 @@ public final class BankHeader {
             return "—";
         }
         try {
-            return new BigDecimal(raw.trim()).setScale(6, RoundingMode.HALF_UP).toPlainString();
+            String cleaned = raw.trim().replace(",", "").replace("_", "");
+            return new BigDecimal(cleaned).setScale(6, RoundingMode.HALF_UP).toPlainString();
         } catch (NumberFormatException exception) {
             return "—";
         }
@@ -96,15 +126,15 @@ public final class BankHeader {
     private static String rateLine(String value) {
         String shown = fixed6(value);
         if ("—".equals(shown)) {
-            return "汇率 —";
+            return "汇率  暂无牌价";
         }
-        return "汇率 " + shown + " 铜/钻";
+        return "汇率  " + shown + " 铜/钻";
     }
 
     private static String normalizeRate(String line) {
         Matcher matcher = NUMBER.matcher(line);
         if (!matcher.find()) {
-            return "汇率 —";
+            return "汇率  暂无牌价";
         }
         return rateLine(matcher.group());
     }

@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BankHeaderTest {
     @Test
-    void showsSixDecimalsRateAndNormalStatusWithoutASidebar() {
+    void chromeKeepsRateAndStatusAndManagementKeepsTheAggregates() {
         JsonObject data = new JsonObject();
         data.addProperty("m0", "1");
         data.addProperty("m1", "4");
@@ -19,18 +19,17 @@ class BankHeaderTest {
         data.addProperty("status", "兑付正常");
         data.addProperty("copperPerDiamond", "1000");
 
-        List<String> lines = BankHeader.lines(data);
-
+        assertEquals(List.of("汇率  1000.000000 铜/钻", "兑付正常"), BankHeader.lines(data));
         assertEquals(List.of(
-                "M0 1.000000",
-                "M1 4.000000",
-                "M2 3.500000",
-                "汇率 1000.000000 铜/钻",
-                "兑付正常"), lines);
+                "流通中现金（M0）：1",
+                "狭义货币（M1）：4",
+                "广义货币（M2）：3.5000"), BankHeader.managementAggregates(data));
+        assertFalse(String.join("\n", BankHeader.lines(data)).contains("M0"));
+        assertFalse(String.join("\n", BankHeader.lines(data)).contains("兑付能力"));
         assertFalse(BankChrome.SIDEBAR);
-        assertFalse(String.join("\n", lines).contains("兑付能力"));
-        assertTrue(BankChrome.TABS.contains("储蓄"));
-        assertTrue(BankChrome.TABS.contains("个人发行"));
+        assertEquals(List.of("储蓄", "存入", "取出", "硬通货兑换", "开立汇票", "兑付汇票", "个人银行券交易"), BankChrome.FUNCTION_TABS);
+        assertFalse(BankChrome.FUNCTION_TABS.contains("汇票"));
+        assertFalse(BankChrome.FUNCTION_TABS.contains("兑换"));
     }
 
     @Test
@@ -47,23 +46,20 @@ class BankHeaderTest {
                 "汇票请到「汇票」页兑付",
                 "定额兑付"));
 
-        assertEquals(List.of("汇率 1000.000000 铜/钻", "兑付正常"), kept);
+        assertEquals(List.of("汇率  1000.000000 铜/钻", "兑付正常"), kept);
     }
 
     @Test
-    void missingRateStillLeavesTheRateLine() {
+    void missingRateSaysSo() {
         JsonObject data = new JsonObject();
-        data.addProperty("m0", "0");
-        data.addProperty("m1", "0");
-        data.addProperty("m2", "0");
         data.addProperty("status", "准备金紧张");
 
         List<String> lines = BankHeader.lines(data);
 
-        assertTrue(lines.contains("汇率 —"));
+        assertTrue(lines.contains("汇率  暂无牌价"));
         assertTrue(lines.contains("准备金紧张"));
-        assertFalse(BankHeader.showStatus("兑付能力 12%"));
-        assertFalse(BankHeader.showStatus("兑付：暂停"));
+        assertFalse(lines.stream().anyMatch(line -> line.startsWith("M0")));
         assertEquals("1.234568", BankHeader.fixed6("1.2345678"));
+        assertEquals("1004.500000", BankHeader.fixed6("1,004.5"));
     }
 }
