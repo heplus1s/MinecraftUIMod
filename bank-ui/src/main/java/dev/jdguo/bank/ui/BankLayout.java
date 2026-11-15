@@ -166,6 +166,39 @@ public final class BankLayout {
         return row1Y(screenHeight) - GAP;
     }
 
+    /**
+     * Visible window for the personal-issuance body.
+     * {@code titleHeight} is the pinned title block, already including its gap.
+     * The port ends at the nav, so the body scrolls inside it instead of covering 关闭.
+     */
+    public static Box issuancePort(int screenWidth, int screenHeight, int titleHeight) {
+        int top = contentTop() + Math.max(12, titleHeight);
+        int bottom = contentBottom(screenHeight);
+        return new Box("个人发行", mainLeft(screenWidth), top, mainWidth(screenWidth), Math.max(0, bottom - top));
+    }
+
+    /** Buttons in one row until the next one would pass {@code right}, then the next row. */
+    public record Flow(List<Box> boxes, int bottom) {
+    }
+
+    public static Flow flow(int x, int y, int right, int gap, int boxHeight, List<String> labels, List<Integer> widths) {
+        List<Box> boxes = new ArrayList<>();
+        int limit = Math.max(x + 20, right);
+        int cursorX = x;
+        int cursorY = y;
+        for (int i = 0; i < labels.size(); i++) {
+            int room = Math.max(20, limit - x);
+            int width = Math.max(20, Math.min(widths.get(i), room));
+            if (cursorX > x && cursorX + width > limit) {
+                cursorY += boxHeight + gap;
+                cursorX = x;
+            }
+            boxes.add(new Box(labels.get(i), cursorX, cursorY, width, boxHeight));
+            cursorX += width + gap;
+        }
+        return new Flow(boxes, boxes.isEmpty() ? y : cursorY + boxHeight);
+    }
+
     public static Box issuanceBox(int screenWidth) {
         return topRight(screenWidth, EDGE, BankChrome.ISSUANCE, labelWidth(BankChrome.ISSUANCE));
     }

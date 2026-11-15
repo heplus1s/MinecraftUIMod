@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,6 +93,72 @@ class BankLayoutTest {
                 assertTrue(admin.centered(width), admin.toString());
                 assertTrue(admin.fits(height), admin.toString());
                 assertTrue(admin.listW() * 2 < width);
+            }
+        }
+    }
+
+    @Test
+    void issuanceBodyScrollsInsideThePortAndDoesNotCoverTheNav() {
+        ToIntFunction<String> measure = text -> text.codePointCount(0, text.length()) * 9;
+        for (int width : new int[] {320, 360, 427, 640, 960}) {
+            for (int height : new int[] {240, 360, 540}) {
+                BankLayout.Box port = BankLayout.issuancePort(width, height, 16);
+                assertTrue(port.height() >= 48, port.toString());
+                assertTrue(port.y() >= BankLayout.contentTop(), port.toString());
+                assertTrue(port.bottom() <= BankLayout.contentBottom(height), port.toString());
+                assertTrue(port.fits(width, height), port.toString());
+                assertTrue(!port.intersects(BankLayout.closeBox(width, height)), port.toString());
+                assertTrue(!port.intersects(BankLayout.issuanceBox(width)), port.toString());
+                for (BankLayout.Box tab : BankLayout.functionTabs(width, height)) {
+                    assertTrue(!port.intersects(tab), port + " hits " + tab.label());
+                }
+                int left = port.x() + 4;
+                int right = port.right() - 8;
+                int textWidth = right - left;
+                assertTrue(textWidth >= 40, textWidth + " " + port);
+                List<String> help = BankText.lines(BankRegimes.FLOAT_RULE, textWidth, measure);
+                assertEquals(BankRegimes.FLOAT_RULE, String.join("", help));
+                if (measure.applyAsInt(BankRegimes.FLOAT_RULE) > textWidth) {
+                    assertTrue(help.size() > 1, "help stays on one line at " + textWidth);
+                }
+                for (String line : help) {
+                    assertTrue(measure.applyAsInt(line) <= textWidth, line);
+                }
+                int y = port.y() + 4;
+                y = BankLayout.flow(left, y, right, 4, 18, List.of("宣告破产"), List.of(BankLayout.labelWidth("宣告破产"))).bottom() + 4;
+                y = BankLayout.flow(left, y, right, 4, 18, List.of("查看能否切换发行制度"),
+                        List.of(BankLayout.labelWidth("查看能否切换发行制度"))).bottom() + 6;
+                y += 5 * 12 + 4 + help.size() * 12 + 6;
+                y += BankLayout.drawerHeight(false, 3) + 6;
+                y += BankLayout.drawerHeight(false, 5) + 8 + 20;
+                BankLayout.Flow chips = BankLayout.flow(left, y, right, BankLayout.GAP, 18,
+                        List.of("1", "5", "10", "64"), List.of(28, 28, 28, 28));
+                for (BankLayout.Box chip : chips.boxes()) {
+                    assertTrue(chip.right() <= right, chip.toString());
+                }
+                y = chips.bottom() + 4;
+                BankLayout.Flow deposit = BankLayout.flow(left, y, right, 4, 18,
+                        List.of("存入央行准备金", "取出央行准备金"),
+                        List.of(BankLayout.labelWidth("存入央行准备金"), BankLayout.labelWidth("取出央行准备金")));
+                y = deposit.bottom() + 4;
+                BankLayout.Flow actions = BankLayout.flow(left, y, right, 4, 18,
+                        List.of("按准备金发行", "确认切换", "无准备金虚发"),
+                        List.of(BankLayout.labelWidth("按准备金发行"), BankLayout.labelWidth("确认切换"),
+                                BankLayout.labelWidth("无准备金虚发")));
+                for (BankLayout.Box box : deposit.boxes()) {
+                    assertTrue(box.x() >= left && box.right() <= right, box.toString());
+                }
+                for (BankLayout.Box box : actions.boxes()) {
+                    assertTrue(box.x() >= left && box.right() <= right, box.toString());
+                }
+                if (textWidth < BankLayout.labelWidth("存入央行准备金") * 2 + 4) {
+                    assertTrue(deposit.boxes().get(1).y() >= deposit.boxes().get(0).bottom());
+                }
+                int bodyBottom = actions.bottom() + 6;
+                if (width <= 360 && height <= 240) {
+                    assertTrue(bodyBottom - port.y() > port.height(),
+                            "body " + (bodyBottom - port.y()) + " port " + port.height());
+                }
             }
         }
     }

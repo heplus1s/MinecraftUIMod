@@ -173,8 +173,18 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         int origin = drawer ? this.top + HEADER : this.top + 2;
         int view = Math.max(0, (this.bottom - 1) - origin);
         int max = Math.max(0, children().size() * this.itemHeight - view);
-        scroll = Math.max(0, Math.min(max, scroll - (int) Math.round(amount * this.itemHeight)));
+        int next = Math.max(0, Math.min(max, scroll - (int) Math.round(amount * this.itemHeight)));
+        if (next == scroll) {
+            return false;
+        }
+        scroll = next;
         return true;
+    }
+
+    void moveTo(int x, int y) {
+        setLeftPos(x);
+        this.top = y;
+        this.bottom = y + this.height;
     }
 
     void setChoices(List<Choice> choices) {
