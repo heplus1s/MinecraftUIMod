@@ -53,20 +53,23 @@ public final class ShopUiClient implements ClientModInitializer {
     }
 
     /** Buy and sell use the server's four-field action packet. */
-    static void sendTrade(boolean buy, String itemId, int count) {
-        sendAction(buy ? "buy" : "sell", itemId, count, 1);
+    static void sendTrade(boolean buy, String itemId, int count, String currency) {
+        sendAction(buy ? "buy" : "sell", itemId, count, 1, currency);
     }
 
     static void sendList() {
-        sendAction("list", "", 1, 1);
+        sendAction("list", "", 1, 1, null);
     }
 
-    private static void sendAction(String action, String itemId, int count, int page) {
+    private static void sendAction(String action, String itemId, int count, int page, String currency) {
         var buf = PacketByteBufs.create();
         buf.writeString(action, 32);
         buf.writeString(itemId == null ? "" : itemId, 128);
         buf.writeVarInt(Math.max(0, count));
         buf.writeVarInt(Math.max(1, page));
+        if (currency != null) {
+            buf.writeString(currency, 64);
+        }
         ClientPlayNetworking.send(ACTION, buf);
     }
 

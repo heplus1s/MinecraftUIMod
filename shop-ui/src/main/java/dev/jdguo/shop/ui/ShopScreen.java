@@ -152,7 +152,12 @@ public final class ShopScreen extends Screen {
             notice = "请填写购买或出售的数量。";
             return;
         }
-        ShopUiClient.sendTrade(buy, itemId, count);
+        boolean explicitCurrency = "true".equals(ShopQuotes.text(data, "explicitCurrency"));
+        if (!explicitCurrency && !ShopQuotes.serverCurrency(data, currencyId)) {
+            notice = "服务器需要升级商店模组，才能使用所选币种。";
+            return;
+        }
+        ShopUiClient.sendTrade(buy, itemId, count, explicitCurrency ? currencyId : null);
     }
 
     @Override
