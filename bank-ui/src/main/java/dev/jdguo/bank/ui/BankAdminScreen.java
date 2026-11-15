@@ -34,7 +34,6 @@ public final class BankAdminScreen extends Screen {
     private ButtonWidget freezeButton;
     private BankLayout.AdminBands bands;
     private boolean closing;
-    private boolean reflow;
 
     public BankAdminScreen(JsonObject data) {
         super(Text.literal(BankChrome.MANAGEMENT));
@@ -67,20 +66,26 @@ public final class BankAdminScreen extends Screen {
                     .build();
             addDrawableChild(currencyButtons[i]);
         }
-        amount = new TextFieldWidget(textRenderer, bands.stepperX() + 26, bands.stepperY(), 88, 14, Text.literal("数量"));
+        amount = new TextFieldWidget(textRenderer, bands.stepperX() + 26, bands.stepperY(), 88, 16, Text.literal("数量"));
         amount.setMaxLength(32);
-        amount.setText(amountText == null || amountText.isBlank() ? "1" : amountText);
+        amount.setEditable(true);
+        amount.setFocusUnlocked(true);
+        amount.setDrawsBackground(true);
+        amount.setTextPredicate(BankAdminScreen::amountChars);
+        amount.setText(amountText == null ? "1" : amountText);
         addDrawableChild(ButtonWidget.builder(Text.literal("－"), button -> adjust(false))
                 .dimensions(bands.stepperX(), bands.stepperY(), 22, 16).build());
         addDrawableChild(amount);
         addDrawableChild(ButtonWidget.builder(Text.literal("＋"), button -> adjust(true))
                 .dimensions(bands.stepperX() + 26 + 88 + 4, bands.stepperY(), 22, 16).build());
+        setFocused(amount);
+        amount.setFocused(true);
 
         String name = currencyName();
-        String qty = shownAmount();
-        unbackedButton = extraButton(Extra.UNBACKED, "无准备金增发 " + qty + " " + name);
-        fromDepositsButton = extraButton(Extra.FROM_DEPOSITS, "从存款转入准备金 " + qty + " " + name);
-        toDepositsButton = extraButton(Extra.TO_DEPOSITS, "从准备金转回存款 " + qty + " " + name);
+        String qty = boxText();
+        unbackedButton = extraButton(Extra.UNBACKED, amountButton("无准备金增发", qty, name));
+        fromDepositsButton = extraButton(Extra.FROM_DEPOSITS, amountButton("从存款转入准备金", qty, name));
+        toDepositsButton = extraButton(Extra.TO_DEPOSITS, amountButton("从准备金转回存款", qty, name));
         fullButton = extraButton(Extra.FULL, "按准备金满额发行 " + name);
         freezeButton = extraButton(Extra.FREEZE, BankBook.freezeButton(data));
         placeExtras();
@@ -122,15 +127,16 @@ public final class BankAdminScreen extends Screen {
     }
 
     private void adjust(boolean issue) {
-        remember();
-        if (!typed(amountText)) {
+        String quantity = boxText();
+        amountText = quantity;
+        if (!typed(quantity)) {
             notice = "请在中间的格子里输入数量。点一次加或减，就按这个数量办理。";
             return;
         }
         notice = "";
         BankUiClient.send(issue
-                ? BankActions.adminBackedAmount(payId, amountText.trim())
-                : BankActions.adminRetire(payId, amountText.trim()));
+                ? BankActions.adminBackedAmount(payId, quantity)
+                : BankActions.adminRetire(payId, quantity));
     }
 
     private void extra(Extra kind) {
@@ -145,12 +151,13 @@ public final class BankAdminScreen extends Screen {
             BankUiClient.send(BankActions.adminBacked(payId));
             return;
         }
-        if (!typed(amountText)) {
+        String quantity = boxText();
+        amountText = quantity;
+        if (!typed(quantity)) {
             notice = "请在中间的格子里输入数量。";
             return;
         }
         notice = "";
-        String quantity = amountText.trim();
         String command = switch (kind) {
             case UNBACKED -> BankActions.adminUnbacked(payId, quantity);
             case FROM_DEPOSITS -> BankActions.adminReserveFromDeposits(payId, quantity);
@@ -170,13 +177,25 @@ public final class BankAdminScreen extends Screen {
     }
 
     @Override
+    public void tick() {
+        if (amount != null) {
+            amount.tick();
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (amount != null && amount.isMouseOver(mouseX, mouseY)) {
+            setFocused(amount);
+            amount.setFocused(true);
+        }
+        return handled || (amount != null && amount.isMouseOver(mouseX, mouseY));
+    }
+
+    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         syncLabels();
-        if (reflow) {
-            reflow = false;
-            clearAndInit();
-            return;
-        }
         renderBackground(context);
         drawFigures(context);
         for (int i = 0; i < currencyButtons.length; i++) {
@@ -243,29 +262,47 @@ public final class BankAdminScreen extends Screen {
         return y;
     }
 
+    /** Button text for an amount action. A blank box is not rewritten as 1. */
+    static String amountButton(String action, String typed, String currency) {
+        String amount = typed == null ? "" : typed.trim();
+        if (amount.isEmpty()) {
+            return action + " " + currency;
+        }
+        return action + " " + amount + " " + currency;
+    }
+
+    /** Digits and at most four decimal places, including an unfinished fraction. */
+    static boolean amountChars(String text) {
+        return text != null && (text.isEmpty() || text.matches("\\d*(\\.\\d{0,4})?"));
+    }
+
     private void syncLabels() {
         String name = currencyName();
-        String qty = shownAmount();
-        reflow |= relabel(unbackedButton, "无准备金增发 " + qty + " " + name);
-        reflow |= relabel(fromDepositsButton, "从存款转入准备金 " + qty + " " + name);
-        reflow |= relabel(toDepositsButton, "从准备金转回存款 " + qty + " " + name);
-        reflow |= relabel(fullButton, "按准备金满额发行 " + name);
-        reflow |= relabel(freezeButton, BankBook.freezeButton(data));
-        for (int i = 0; i < currencyButtons.length; i++) {
-            String label = CURRENCY_IDS[i].equals(payId) ? "▶ " + CURRENCY_NAMES[i] : CURRENCY_NAMES[i];
-            reflow |= relabel(currencyButtons[i], label);
+        String qty = boxText();
+        boolean moved = false;
+        moved |= fit(unbackedButton, amountButton("无准备金增发", qty, name));
+        moved |= fit(fromDepositsButton, amountButton("从存款转入准备金", qty, name));
+        moved |= fit(toDepositsButton, amountButton("从准备金转回存款", qty, name));
+        moved |= fit(fullButton, "按准备金满额发行 " + name);
+        moved |= fit(freezeButton, BankBook.freezeButton(data));
+        if (moved) {
+            placeExtras();
         }
     }
 
-    private boolean relabel(ButtonWidget button, String text) {
-        if (button == null || text.equals(button.getMessage().getString())) {
+    private boolean fit(ButtonWidget button, String text) {
+        if (button == null) {
             return false;
         }
-        if (textRenderer.getWidth(text) + 10 > button.getWidth()) {
-            return true;
+        if (!text.equals(button.getMessage().getString())) {
+            button.setMessage(Text.literal(text));
         }
-        button.setMessage(Text.literal(text));
-        return false;
+        int width = Math.max(20, textRenderer.getWidth(text) + 10);
+        if (button.getWidth() == width) {
+            return false;
+        }
+        button.setWidth(width);
+        return true;
     }
 
     private int figureRows() {
@@ -283,11 +320,11 @@ public final class BankAdminScreen extends Screen {
         }
     }
 
-    private String shownAmount() {
-        if (amount != null && amount.getText() != null && !amount.getText().isBlank()) {
+    private String boxText() {
+        if (amount != null && amount.getText() != null) {
             return amount.getText().trim();
         }
-        return amountText == null || amountText.isBlank() ? "1" : amountText.trim();
+        return amountText == null ? "" : amountText.trim();
     }
 
     private String currencyName() {

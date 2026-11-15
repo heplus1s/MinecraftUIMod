@@ -3,6 +3,7 @@ package dev.jdguo.bank.ui;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BankActionsTest {
@@ -52,5 +53,21 @@ class BankActionsTest {
         assertEquals("note-switch peg note", BankActions.noteSwitch("peg", "银行券"));
         assertEquals("note-switch hard diamond", BankActions.noteSwitch("hard", "diamond"));
         assertEquals("note-switch hard", BankActions.noteSwitch("hard", "note"));
+    }
+
+    @Test
+    void managementButtonsUseTheTypedAmountAndDoNotInventOne() {
+        assertEquals("从存款转入准备金 256 银行券", BankAdminScreen.amountButton("从存款转入准备金", "256", "银行券"));
+        assertEquals("无准备金增发 3.5000 铜锭", BankAdminScreen.amountButton("无准备金增发", " 3.5000 ", "铜锭"));
+        assertEquals("从准备金转回存款 钻石", BankAdminScreen.amountButton("从准备金转回存款", "", "钻石"));
+        assertEquals("从准备金转回存款 钻石", BankAdminScreen.amountButton("从准备金转回存款", "   ", "钻石"));
+        assertTrue(BankAdminScreen.amountChars("256"));
+        assertTrue(BankAdminScreen.amountChars("0.2500"));
+        assertTrue(BankAdminScreen.amountChars("10."));
+        assertFalse(BankAdminScreen.amountChars("10.12345"));
+        assertFalse(BankAdminScreen.amountChars("1a"));
+        assertEquals("admin-backed note 256", BankActions.adminBackedAmount("note", "256"));
+        assertEquals("admin-reserve-from-deposits note 256", BankActions.adminReserveFromDeposits("note", "256"));
+        assertEquals("admin-backed note", BankActions.adminBacked("note"));
     }
 }
