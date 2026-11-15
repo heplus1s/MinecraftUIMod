@@ -193,21 +193,42 @@ public final class BankTerminalScreen extends Screen {
                 .dimensions(x, pageBand.actionY(), width, 20).build());
     }
 
+    private boolean externalPersonalMarket() {
+        return "true".equals(BankSnapshot.text(data, "externalPersonalMarket"));
+    }
+
+    private void openPersonalCommand(String command) {
+        if (client != null) {
+            client.setScreen(new ChatScreen(command));
+        }
+    }
+
     private void initMarket() {
+        boolean external = externalPersonalMarket();
+        if (external) {
+            marketMode = "redeem";
+        }
         List<BankSnapshot.NoteRow> notes = BankSnapshot.notes(data);
         ensureNote(notes);
         List<ChoiceListWidget.Choice> second = noteChoices(notes);
         boolean secondOpen = "note".equals(openDrawer) || "other".equals(openDrawer) || "receive".equals(openDrawer);
         int headerBottom = marketHeaderBottom();
         BankLayout.MarketStack stack = BankLayout.marketStack(headerBottom, BankLayout.contentBottom(this.height),
-                "mode".equals(openDrawer), 4, secondOpen, Math.max(1, second.size()));
+                !external && "mode".equals(openDrawer), 4, secondOpen, Math.max(1, second.size()));
         pageBand = new BankLayout.Band(stack.firstY(), stack.firstH(), stack.fieldY(), stack.quickY(), stack.actionY());
         marketBalanceY = stack.secondY() + stack.secondH() + 4;
-        placeDrawer("mode", centerX(listWidth()), stack.firstY(), listWidth(), List.of(
-                new ChoiceListWidget.Choice("buy", "买入"),
-                new ChoiceListWidget.Choice("sell", "卖出"),
-                new ChoiceListWidget.Choice("swap", "互换"),
-                new ChoiceListWidget.Choice("redeem", "通兑")), marketMode, stack.firstH());
+        if (external) {
+            int[] columns = twoColumns();
+            addDrawableChild(textButton("前往市场", columns[0], stack.firstY(), () -> openPersonalCommand("/market note")));
+            addDrawableChild(textButton("转给玩家", columns[1], stack.firstY(),
+                    () -> openPersonalCommand("/bank note transfer " + (noteName.isBlank() ? "" : "\"" + noteName + "\" "))));
+        } else {
+            placeDrawer("mode", centerX(listWidth()), stack.firstY(), listWidth(), List.of(
+                    new ChoiceListWidget.Choice("buy", "买入"),
+                    new ChoiceListWidget.Choice("sell", "卖出"),
+                    new ChoiceListWidget.Choice("swap", "互换"),
+                    new ChoiceListWidget.Choice("redeem", "通兑")), marketMode, stack.firstH());
+        }
         if ("swap".equals(marketMode)) {
             int[] columns = twoColumns();
             placeDrawer("note", columns[0], stack.secondY(), columns[2], second, noteName, stack.secondH());
@@ -1306,6 +1327,9 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private String marketHeading() {
+        if (externalPersonalMarket()) {
+            return "挂牌买卖在市场办理。这里可以转账或从发行准备金通兑。";
+        }
         return switch (marketMode) {
             case "sell" -> "卖出个人银行券，只换成银行券，不动发行人的准备金。";
             case "swap" -> "把一张个人银行券换成另一张，不动发行人的准备金。";
