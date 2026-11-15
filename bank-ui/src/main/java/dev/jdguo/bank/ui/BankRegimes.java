@@ -92,7 +92,14 @@ public final class BankRegimes {
         JsonObject note = BankSnapshot.ownNote(data);
         List<String> lines = new ArrayList<>();
         String amount = firstKey(note, data, "issuanceReserve", "personalReserves", "personalReserve");
-        String currency = firstKey(note, data, "reserveCurrencyName", "reserveCurrency", "reserveName");
+        String currency = firstKey(note, data, "reserveCurrencyName");
+        if (currency == null) {
+            String currencyId = firstKey(note, data, "reserveCurrency", "reserveName");
+            if (currencyId != null) {
+                String named = anchorName(currencyId);
+                currency = BankBook.MISSING.equals(named) ? currencyId : named;
+            }
+        }
         if (currency == null) {
             String anchor = anchorName(first(note, data, "anchor"));
             if (!BankBook.MISSING.equals(anchor)) {
@@ -106,11 +113,11 @@ public final class BankRegimes {
         } else {
             lines.add("发行准备金：" + currency + " " + BankHeader.figure(amount));
         }
-        String locked = firstKey(note, data, "lockedReserve", "locked");
+        String locked = firstKey(note, data, "issuanceLocked", "lockedReserve", "locked");
         if (locked != null) {
             lines.add(amount("已锁定", locked));
         }
-        String free = firstKey(note, data, "freeReserve", "free");
+        String free = firstKey(note, data, "issuanceFree", "freeReserve", "free");
         if (free != null) {
             lines.add(amount("可动用", free));
         }
@@ -120,6 +127,53 @@ public final class BankRegimes {
             lines.add(amount("央行银行券准备金", firstKey(note, data, "centralReserve", "noteReserve")));
         }
         return lines;
+    }
+
+    /** One row in the anchor drawer. A group row is a heading, not a selectable currency. */
+    public record AnchorRow(String id, String label, boolean group) {
+    }
+
+    /**
+     * Uses {@code anchorGroups} when the snapshot sends it.
+     * Otherwise 实物货币 is 铜锭 and 钻石, and 发行货币 is 银行券.
+     */
+    public static List<AnchorRow> anchorRows(JsonObject data) {
+        List<JsonObject> groups = arrayField(data, "anchorGroups");
+        if (groups.isEmpty()) {
+            groups = arrayField(BankSnapshot.ownNote(data), "anchorGroups");
+        }
+        if (!groups.isEmpty()) {
+            List<AnchorRow> rows = new ArrayList<>();
+            for (JsonObject group : groups) {
+                String heading = firstText(group, "name", "label");
+                if (heading == null) {
+                    continue;
+                }
+                rows.add(new AnchorRow("group:" + heading, heading, true));
+                List<JsonObject> items = arrayField(group, "items");
+                if (items.isEmpty()) {
+                    items = arrayField(group, "currencies");
+                }
+                for (JsonObject item : items) {
+                    String id = BankSnapshot.text(item, "id");
+                    String name = firstText(item, "name", "label");
+                    if (id == null || name == null) {
+                        continue;
+                    }
+                    rows.add(new AnchorRow(id, name, false));
+                }
+            }
+            if (!rows.isEmpty()) {
+                return rows;
+            }
+        }
+        List<AnchorRow> defaults = new ArrayList<>();
+        defaults.add(new AnchorRow("group:实物货币", "实物货币", true));
+        defaults.add(new AnchorRow("copper", "铜锭", false));
+        defaults.add(new AnchorRow("diamond", "钻石", false));
+        defaults.add(new AnchorRow("group:发行货币", "发行货币", true));
+        defaults.add(new AnchorRow("note", "银行券", false));
+        return defaults;
     }
 
     public static List<String> figures(JsonObject data) {
@@ -174,6 +228,32 @@ public final class BankRegimes {
             return "这张个人银行券已暂停，不能切换发行制度。";
         }
         return null;
+    }
+
+    private static String firstText(JsonObject row, String... keys) {
+        if (row == null) {
+            return null;
+        }
+        for (String key : keys) {
+            String value = BankSnapshot.text(row, key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static List<JsonObject> arrayField(JsonObject data, String key) {
+        List<JsonObject> rows = new ArrayList<>();
+        if (data == null || !data.has(key) || !data.get(key).isJsonArray()) {
+            return rows;
+        }
+        for (var element : data.getAsJsonArray(key)) {
+            if (element.isJsonObject()) {
+                rows.add(element.getAsJsonObject());
+            }
+        }
+        return rows;
     }
 
     private static List<JsonObject> arrayOf(JsonObject data) {

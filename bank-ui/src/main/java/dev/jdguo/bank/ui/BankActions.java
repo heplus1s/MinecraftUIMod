@@ -111,13 +111,11 @@ public final class BankActions {
      * Switches the issuer's regime. {@code note} is a legal anchor only for peg.
      * Float and hard omit a bank-note anchor.
      */
+    /** Every regime may name diamond, copper, or note. A missing anchor omits that word. */
     public static String noteSwitch(String regime, String anchor) {
         String kind = regimeToken(regime);
         String peg = anchorToken(anchor);
-        if (peg == null || "float".equals(kind)) {
-            return "note-switch " + kind;
-        }
-        if ("note".equals(peg) && !"peg".equals(kind)) {
+        if (peg == null) {
             return "note-switch " + kind;
         }
         return "note-switch " + kind + " " + peg;

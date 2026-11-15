@@ -153,6 +153,9 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         for (Row row : children()) {
             int rowY = innerTop + index * this.itemHeight - scroll;
             if (mouseY >= rowY && mouseY < rowY + this.itemHeight && rowY < this.bottom && rowY + this.itemHeight > innerTop) {
+                if (row.choice.section()) {
+                    return true;
+                }
                 setSelected(row);
                 picked = true;
                 return true;
@@ -197,11 +200,14 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
 
     String selectedLabel() {
         Row row = getSelectedOrNull();
-        return row == null ? "" : row.choice.label;
+        if (row == null || row.choice.section()) {
+            return "";
+        }
+        return row.choice.label;
     }
 
     void select(String id) {
-        if (id == null || id.isBlank()) {
+        if (id == null || id.isBlank() || id.startsWith("group:")) {
             return;
         }
         for (Row row : children()) {
@@ -222,7 +228,11 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         return getRowLeft() + getRowWidth();
     }
 
-    record Choice(String id, String label) {}
+    record Choice(String id, String label, boolean section) {
+        Choice(String id, String label) {
+            this(id, label, false);
+        }
+    }
 
     final class Row extends AlwaysSelectedEntryListWidget.Entry<Row> {
         private final Choice choice;
@@ -234,16 +244,20 @@ final class ChoiceListWidget extends AlwaysSelectedEntryListWidget<ChoiceListWid
         @Override
         public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight,
                            int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            boolean selected = getSelectedOrNull() == this;
-            if (selected || hovered) {
+            boolean selected = !choice.section() && getSelectedOrNull() == this;
+            if (!choice.section() && (selected || hovered)) {
                 context.fill(x, y, x + entryWidth, y + entryHeight - 1, selected ? 0xAA3A5A38 : 0x66333333);
             }
-            context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, x + 4, y + 4, 0xFFFFFFFF, true);
+            int color = choice.section() ? 0xFFE8D090 : 0xFFFFFFFF;
+            int textX = x + (choice.section() ? 4 : 12);
+            context.drawText(MinecraftClient.getInstance().textRenderer, choice.label, textX, y + 4, color, true);
         }
 
         @Override
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            setSelected(this);
+            if (!choice.section()) {
+                setSelected(this);
+            }
             return true;
         }
 

@@ -35,6 +35,8 @@ public final class BankTerminalScreen extends Screen {
     private String amountText = "1";
     private String notice = "";
     private String openDrawer = "";
+    private String switchRegime = "";
+    private String switchAnchor = "";
     private int marketBalanceY = -1;
     private int bookScroll;
     private int bookX;
@@ -233,20 +235,59 @@ public final class BankTerminalScreen extends Screen {
         if (BankSnapshot.bankrupt(data)) {
             return;
         }
-        int textTop = contentTop() + 48;
-        int textBottom = textTop + (2 + BankRegimes.issuanceHoldings(data).size()) * 12 + 6;
-        int fieldY = textBottom;
-        int quickY = fieldY + 20;
-        int rowY = quickY + 22;
-        int edgeY = rowY + 22;
-        pageBand = new BankLayout.Band(textTop, textBottom - textTop, fieldY, quickY, edgeY);
+        rememberIssuanceChoice();
+        List<BankRegimes.AnchorRow> anchors = BankRegimes.anchorRows(data);
+        int textTop = contentTop() + 48 + (notice.isBlank() ? 0 : 24);
+        int top = textTop + (2 + BankRegimes.issuanceHoldings(data).size()) * 12 + 8;
+        BankLayout.IssuanceStack stack = BankLayout.issuanceStack(top, BankLayout.contentBottom(this.height),
+                "switchRegime".equals(openDrawer), "switchAnchor".equals(openDrawer), anchors.size());
+        pageBand = new BankLayout.Band(textTop, top - textTop, stack.fieldY(), stack.quickY(), stack.issueY());
+        placeDrawer("switchRegime", centerX(listWidth()), stack.regimeY(), listWidth(), List.of(
+                new ChoiceListWidget.Choice("float", "浮动汇率制"),
+                new ChoiceListWidget.Choice("peg", "联系汇率制"),
+                new ChoiceListWidget.Choice("hard", "固定汇率制")), switchRegime, stack.regimeH());
+        List<ChoiceListWidget.Choice> anchorChoices = new ArrayList<>();
+        for (BankRegimes.AnchorRow row : anchors) {
+            anchorChoices.add(new ChoiceListWidget.Choice(row.id(), row.label(), row.group()));
+        }
+        placeDrawer("switchAnchor", centerX(listWidth()), stack.anchorY(), listWidth(), anchorChoices, switchAnchor, stack.anchorH());
         addAmountBlock(false, null);
-        addDrawableChild(textButton("存入央行准备金", mainLeft(), rowY, () -> sendAmount(BankActions::reserveDeposit)));
+        addDrawableChild(textButton("存入央行准备金", mainLeft(), stack.depositY(), () -> sendAmount(BankActions::reserveDeposit)));
         int withdrawX = mainLeft() + buttonWidth("存入央行准备金") + 6;
-        addDrawableChild(textButton("取出央行准备金", withdrawX, rowY, () -> sendAmount(BankActions::reserveWithdraw)));
-        addDrawableChild(textButton("按准备金发行", mainLeft(), edgeY, () -> sendAmount(BankActions::noteIssue)));
+        addDrawableChild(textButton("取出央行准备金", withdrawX, stack.depositY(), () -> sendAmount(BankActions::reserveWithdraw)));
+        addDrawableChild(textButton("按准备金发行", mainLeft(), stack.issueY(), () -> sendAmount(BankActions::noteIssue)));
+        addDrawableChild(textButton("确认切换", mainLeft() + buttonWidth("按准备金发行") + 6, stack.issueY(), this::confirmSwitch));
         int unbackedX = mainRight() - buttonWidth("无准备金虚发");
-        addDrawableChild(textButton("无准备金虚发", unbackedX, edgeY, () -> sendAmount(BankActions::noteUnbacked)));
+        addDrawableChild(textButton("无准备金虚发", unbackedX, stack.issueY(), () -> sendAmount(BankActions::noteUnbacked)));
+    }
+
+    private void rememberIssuanceChoice() {
+        if (switchRegime == null || switchRegime.isBlank()) {
+            switchRegime = BankActions.regimeToken(BankSnapshot.regimeName(data));
+        }
+        if (switchAnchor == null || switchAnchor.isBlank()) {
+            JsonObject note = BankSnapshot.ownNote(data);
+            String raw = note == null ? BankSnapshot.text(data, "anchor") : BankSnapshot.text(note, "anchor");
+            if (raw == null) {
+                raw = BankSnapshot.text(data, "anchor");
+            }
+            String token = BankActions.anchorToken(raw);
+            if (token != null) {
+                switchAnchor = token;
+            }
+        }
+    }
+
+    private void confirmSwitch() {
+        String regime = selected("switchRegime", switchRegime);
+        String anchor = selected("switchAnchor", switchAnchor);
+        if (regime == null || regime.isBlank() || anchor == null || anchor.isBlank() || anchor.startsWith("group:")) {
+            notice = "请先选择发行制度和锚。";
+            return;
+        }
+        switchRegime = regime;
+        switchAnchor = anchor;
+        send(BankActions.noteSwitch(regime, anchor));
     }
 
     private void useControls(int drawerRows) {
@@ -454,7 +495,13 @@ public final class BankTerminalScreen extends Screen {
             }
         }
         if (!notice.isBlank() && page != Page.CONFIRM) {
-            context.drawText(textRenderer, notice, mainLeft(), contentTop(), 0xFFFFCC88, false);
+            if (page == Page.ISSUANCE) {
+                drawWrapped(context, notice, mainLeft(), contentTop() + 46, mainWidth(), 0xFFFFCC88);
+            } else if (page != Page.MARKET) {
+                context.drawText(textRenderer, notice, mainLeft(), contentTop(), 0xFFFFCC88, false);
+            } else {
+                drawWrapped(context, notice, mainLeft(), marketHeaderBottom(), mainWidth(), 0xFFFFCC88);
+            }
         }
     }
 
@@ -785,6 +832,12 @@ public final class BankTerminalScreen extends Screen {
             }
             case "payee" -> payeeSelf = "self".equals(id);
             case "regime" -> askForNoteName(id);
+            case "switchRegime" -> switchRegime = id;
+            case "switchAnchor" -> {
+                if (!id.startsWith("group:")) {
+                    switchAnchor = id;
+                }
+            }
             default -> {
             }
         }

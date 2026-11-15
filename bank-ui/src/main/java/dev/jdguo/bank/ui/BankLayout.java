@@ -87,6 +87,43 @@ public final class BankLayout {
         return new MarketStack(top, firstH, secondY, secondH, fieldY, quickY, actionY);
     }
 
+    /**
+     * Personal issuance. Regime drawer, then anchor drawer, then the amount and action rows.
+     * An open list stays above the amount box.
+     */
+    public record IssuanceStack(
+            int regimeY, int regimeH, int anchorY, int anchorH, int fieldY, int quickY, int depositY, int issueY) {
+        public boolean separated(int bottom) {
+            return anchorY >= regimeY + regimeH + 4
+                    && fieldY >= anchorY + anchorH + 4
+                    && quickY >= fieldY + 16
+                    && depositY >= quickY + 18
+                    && issueY >= depositY + 18
+                    && issueY + 18 <= bottom;
+        }
+    }
+
+    public static IssuanceStack issuanceStack(int top, int bottom, boolean regimeOpen, boolean anchorOpen, int anchorRows) {
+        int gap = 6;
+        int regimeH = drawerHeight(regimeOpen, 3);
+        int anchorH = drawerHeight(anchorOpen, Math.max(1, anchorRows));
+        int tail = gap + 16 + 4 + 18 + 4 + 18 + 4 + 18;
+        int overflow = top + regimeH + gap + anchorH + tail - bottom;
+        if (overflow > 0 && regimeOpen) {
+            regimeH = Math.max(38, regimeH - overflow);
+            overflow = top + regimeH + gap + anchorH + tail - bottom;
+        }
+        if (overflow > 0 && anchorOpen) {
+            anchorH = Math.max(38, anchorH - overflow);
+        }
+        int anchorY = top + regimeH + gap;
+        int fieldY = anchorY + anchorH + gap;
+        int quickY = fieldY + 20;
+        int depositY = quickY + 22;
+        int issueY = depositY + 22;
+        return new IssuanceStack(top, regimeH, anchorY, anchorH, fieldY, quickY, depositY, issueY);
+    }
+
     public static int labelWidth(String label) {
         return label.codePointCount(0, label.length()) * 12 + 18;
     }

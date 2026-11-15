@@ -76,6 +76,17 @@ class BankLayoutTest {
                         }
                     }
                 }
+                int issuanceTop = BankLayout.contentTop() + 80;
+                BankLayout.IssuanceStack issuance = BankLayout.issuanceStack(issuanceTop, BankLayout.contentBottom(height), true, true, 5);
+                assertTrue(issuance.regimeY() >= issuanceTop, issuance.toString());
+                assertTrue(issuance.anchorY() >= issuance.regimeY() + issuance.regimeH() + 4, issuance.toString());
+                assertTrue(issuance.fieldY() >= issuance.anchorY() + issuance.anchorH() + 4, issuance.toString());
+                assertTrue(issuance.depositY() >= issuance.quickY() + 18, issuance.toString());
+                assertTrue(issuance.issueY() >= issuance.depositY() + 18, issuance.toString());
+                if (height >= 360) {
+                    assertTrue(issuance.separated(BankLayout.contentBottom(height)), issuance.toString());
+                    assertTrue(issuance.regimeH() >= 38 && issuance.anchorH() >= 38, issuance.toString());
+                }
                 BankLayout.AdminBands admin = BankLayout.adminBands(width, height);
                 assertTrue(admin.separated(), width + "x" + height + " admin " + admin);
                 assertTrue(admin.centered(width), admin.toString());

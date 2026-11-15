@@ -74,6 +74,25 @@ class BankRegimesTest {
         List<String> pegLines = BankRegimes.issuanceHoldings(peg);
         assertTrue(pegLines.contains("央行银行券准备金：40"));
         assertTrue(pegLines.get(0).contains("暂无数据"));
+
+        JsonObject named = new JsonObject();
+        JsonObject namedNote = new JsonObject();
+        namedNote.addProperty("reserveCurrency", "diamond");
+        namedNote.addProperty("issuanceReserve", "12.5");
+        namedNote.addProperty("issuanceLocked", "2");
+        namedNote.addProperty("issuanceFree", "10.5");
+        named.add("ownNote", namedNote);
+        List<String> namedLines = BankRegimes.issuanceHoldings(named);
+        assertTrue(namedLines.contains("发行准备金：钻石 12.5000"));
+        assertTrue(namedLines.contains("已锁定：2"));
+        assertTrue(namedLines.contains("可动用：10.5000"));
+
+        List<BankRegimes.AnchorRow> defaults = BankRegimes.anchorRows(new JsonObject());
+        assertEquals(List.of("实物货币", "铜锭", "钻石", "发行货币", "银行券"),
+                defaults.stream().map(BankRegimes.AnchorRow::label).toList());
+        assertTrue(defaults.get(0).group());
+        assertFalse(defaults.get(1).group());
+        assertEquals("note", defaults.get(4).id());
     }
 
     @Test

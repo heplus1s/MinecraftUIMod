@@ -50,9 +50,11 @@ class BankActionsTest {
         assertEquals("/bank note create peg ", BankActions.noteNameCommand("联系汇率制"));
         assertEquals("/bank note create hard ", BankActions.noteNameCommand("固定汇率制"));
         assertEquals("note-switch float", BankActions.noteSwitch("FLOAT", null));
+        assertEquals("note-switch float diamond", BankActions.noteSwitch("浮动汇率制", "钻石"));
         assertEquals("note-switch peg note", BankActions.noteSwitch("peg", "银行券"));
         assertEquals("note-switch hard diamond", BankActions.noteSwitch("hard", "diamond"));
-        assertEquals("note-switch hard", BankActions.noteSwitch("hard", "note"));
+        assertEquals("note-switch hard note", BankActions.noteSwitch("固定汇率制", "银行券"));
+        assertEquals("note-switch peg copper", BankActions.noteSwitch("联系汇率制", "铜锭"));
     }
 
     @Test
