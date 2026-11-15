@@ -46,9 +46,11 @@ class BankLayoutTest {
                     int openRoom = controls.fieldY() - 12 - (controls.drawerY() + (rows - 1) * 24);
                     assertTrue(openRoom >= 36, "open drawer room " + openRoom + " " + controls);
                 }
-                BankLayout.AdminBands admin = BankLayout.adminBands(height);
+                BankLayout.AdminBands admin = BankLayout.adminBands(width, height);
                 assertTrue(admin.separated(), width + "x" + height + " admin " + admin);
-                assertTrue(admin.extraY() + 18 <= BankLayout.closeY(height));
+                assertTrue(admin.centered(width), admin.toString());
+                assertTrue(admin.fits(height), admin.toString());
+                assertTrue(admin.listW() * 2 < width);
             }
         }
     }

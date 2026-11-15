@@ -145,37 +145,63 @@ public final class BankLayout {
         return new PlayerControls(drawerY, fieldY, quickY, actionY);
     }
 
-    /** Quotes, ledger, currency list, stepper, and the extra actions, with gaps between them. */
-    public record AdminBands(int quoteY, int bookY, int bookH, int listY, int listH, int stepperY, int extraY) {
+    /**
+     * Operator page. Figures are two columns of text, not a scrolling panel.
+     * The currency list is three short rows, centered, and stops above the amount.
+     */
+    public record AdminBands(
+            int quoteY,
+            int figureY,
+            int figureBottom,
+            int listX,
+            int listY,
+            int listW,
+            int listH,
+            int stepperX,
+            int stepperY,
+            int extraY,
+            int lineStep) {
         public boolean separated() {
-            return bookH >= 24
-                    && bookY >= quoteY + 24
-                    && bookY + bookH + 4 <= listY
-                    && listH >= 36
-                    && listY + listH + 4 <= stepperY
-                    && stepperY + 20 <= extraY;
+            return figureY >= quoteY + 2 * lineStep
+                    && figureBottom <= listY
+                    && listH == 42
+                    && listW <= 120
+                    && listY + listH + 2 <= stepperY
+                    && stepperY + 16 <= extraY;
+        }
+
+        public boolean centered(int screenWidth) {
+            return listX > EDGE
+                    && listX + listW < screenWidth - EDGE
+                    && Math.abs(listX + listW / 2 - screenWidth / 2) <= 1;
+        }
+
+        public boolean fits(int screenHeight) {
+            return extraY + 16 * 3 <= screenHeight - 2 && quoteY >= 2;
         }
     }
 
-    public static AdminBands adminBands(int screenHeight) {
-        int quoteY = EDGE;
-        int extraY = closeY(screenHeight) - GAP - BUTTON_HEIGHT;
-        int stepperY = extraY - GAP - BUTTON_HEIGHT;
-        int listH = 72;
-        int listY = stepperY - GAP - listH;
-        int bookY = quoteY + 28;
-        int bookH = listY - GAP - bookY;
-        if (bookH < 24) {
-            listH = 36;
-            listY = stepperY - GAP - listH;
-            bookY = quoteY + 28;
-            bookH = Math.max(24, listY - GAP - bookY);
-        }
-        if (listY < bookY + 24) {
-            listY = bookY + 24;
-            listH = Math.max(36, stepperY - GAP - listY);
-        }
-        return new AdminBands(quoteY, bookY, bookH, listY, listH, stepperY, extraY);
+    /** Worst case is ten figure rows: two aggregate rows, five metal rows, three note rows. */
+    public static AdminBands adminBands(int screenWidth, int screenHeight) {
+        return adminBands(screenWidth, screenHeight, 10);
+    }
+
+    public static AdminBands adminBands(int screenWidth, int screenHeight, int figureRows) {
+        int step = screenHeight >= 320 ? 12 : 10;
+        int gap = screenHeight >= 320 ? 6 : 2;
+        int quoteY = 4;
+        int figureY = quoteY + 2 * step + gap;
+        int rows = Math.max(1, figureRows);
+        int figureBottom = figureY + rows * step;
+        int listH = 42;
+        int listW = 88;
+        int listY = figureBottom + gap;
+        int listX = Math.max(EDGE, (screenWidth - listW) / 2);
+        int stepperY = listY + listH + gap;
+        int stepperW = 22 + 4 + 88 + 4 + 22;
+        int stepperX = Math.max(EDGE, (screenWidth - stepperW) / 2);
+        int extraY = stepperY + 16 + gap;
+        return new AdminBands(quoteY, figureY, figureBottom, listX, listY, listW, listH, stepperX, stepperY, extraY, step);
     }
 
     public static Box closeBox(int screenWidth, int screenHeight) {

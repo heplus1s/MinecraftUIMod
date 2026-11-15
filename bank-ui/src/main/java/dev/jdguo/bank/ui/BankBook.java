@@ -114,6 +114,59 @@ public final class BankBook {
         return List.of(FREEZE_NOTE, UNBACKED_NOTE, RETIRE_NOTE, BACKED_EXPLANATION);
     }
 
+    /** M0, M1, M2 and the line that says they are not reserves. */
+    public static List<String> circulationLines(JsonObject data) {
+        List<String> lines = new ArrayList<>(BankHeader.managementAggregates(data));
+        lines.add(CIRCULATION_NOTE);
+        return lines;
+    }
+
+    /**
+     * Copper or diamond column. Comparison totals read {@code hardBooks} first.
+     * 存款保管 is included only when that central field is present.
+     */
+    public static List<String> metalLines(JsonObject data, String id, String name, String reserveKey) {
+        BankSnapshot.CentralRow row = find(data, id, name);
+        List<String> lines = new ArrayList<>();
+        lines.add(field(name + "储蓄账面总值", bookTotal(data, id, row)));
+        lines.add(field(name + "实际硬通货储蓄总值", physicalTotal(data, id, row)));
+        String reserve = BankSnapshot.text(data, reserveKey);
+        if (reserve == null && row != null) {
+            reserve = row.reserve();
+        }
+        lines.add(field(name + "准备金", reserve));
+        lines.add(field(name + "央行储蓄", row == null ? null : row.savings()));
+        if (row != null && row.vault() != null) {
+            lines.add(field(name + "存款保管", row.vault()));
+        }
+        return lines;
+    }
+
+    /**
+     * Bank-note column. 发行准备金 and 央行储蓄 are always shown.
+     * 发行额, 已锁定准备金, and 按准备金尚可发行 appear only when the snapshot has them.
+     */
+    public static List<String> noteLines(JsonObject data) {
+        BankSnapshot.CentralRow row = find(data, "note", "银行券");
+        String reserve = BankSnapshot.text(data, "noteReserve");
+        if (reserve == null && row != null) {
+            reserve = row.reserve();
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add(field("银行券发行准备金", reserve));
+        lines.add(field("银行券央行储蓄", row == null ? null : row.savings()));
+        if (row != null && row.liability() != null) {
+            lines.add(field("银行券发行额", row.liability()));
+        }
+        if (row != null && row.locked() != null) {
+            lines.add(field("银行券已锁定准备金", row.locked()));
+        }
+        if (row != null && row.backedRoom() != null) {
+            lines.add(field("银行券按准备金尚可发行", row.backedRoom()));
+        }
+        return lines;
+    }
+
     private static List<String> currencyLines(JsonObject data, String id, String name, String rootReserve, boolean note) {
         BankSnapshot.CentralRow row = find(data, id, name);
         List<String> lines = new ArrayList<>();

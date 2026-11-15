@@ -103,6 +103,11 @@ class BankBookTest {
         assertTrue(fromHardBooks.contains("铜锭储蓄账面总值：20.5000"));
         assertTrue(fromHardBooks.contains("铜锭实际硬通货储蓄总值：18"));
         assertTrue(fromHardBooks.contains("铜锭准备金：1000000"));
+        assertEquals("铜锭储蓄账面总值：20.5000", BankBook.metalLines(data, "copper", "铜锭", "copperReserve").get(0));
+        assertEquals("铜锭实际硬通货储蓄总值：18", BankBook.metalLines(data, "copper", "铜锭", "copperReserve").get(1));
+        assertTrue(BankBook.noteLines(data).contains("银行券发行准备金：1000000"));
+        assertTrue(BankBook.noteLines(data).contains("银行券发行额：5000"));
+        assertFalse(String.join("\n", BankBook.metalLines(data, "copper", "铜锭", "copperReserve")).contains("发行额"));
     }
 
     private static JsonObject snapshot(boolean frozen) {

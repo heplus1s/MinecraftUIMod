@@ -7,23 +7,34 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Operator screen opened by /bank admin. It does not use the counter's tabs,
- * and Creative mode is not what puts a player here. The snapshot's admin flag is.
+ * Operator screen opened by /bank admin. Figures are written in two columns.
+ * There is no scrolling ledger panel and no player-tab row.
  */
 public final class BankAdminScreen extends Screen {
+    private static final String[] CURRENCY_IDS = {"copper", "diamond", "note"};
+    private static final String[] CURRENCY_NAMES = {"铜锭", "钻石", "银行券"};
+
+    private enum Extra {
+        UNBACKED, FROM_DEPOSITS, TO_DEPOSITS, FULL, FREEZE
+    }
+
     private JsonObject data;
-    private String payId = "";
+    private String payId = "copper";
     private String amountText = "1";
     private String notice = "";
-    private int bookScroll;
     private TextFieldWidget amount;
-    private ChoiceListWidget currencies;
+    private ButtonWidget[] currencyButtons = new ButtonWidget[CURRENCY_IDS.length];
+    private ButtonWidget unbackedButton;
+    private ButtonWidget fromDepositsButton;
+    private ButtonWidget toDepositsButton;
+    private ButtonWidget fullButton;
+    private ButtonWidget freezeButton;
     private BankLayout.AdminBands bands;
     private boolean closing;
+    private boolean reflow;
 
     public BankAdminScreen(JsonObject data) {
         super(Text.literal(BankChrome.MANAGEMENT));
@@ -31,12 +42,7 @@ public final class BankAdminScreen extends Screen {
     }
 
     void show(JsonObject next) {
-        if (amount != null && amount.getText() != null) {
-            amountText = amount.getText();
-        }
-        if (currencies != null && currencies.selectedId() != null) {
-            payId = currencies.selectedId();
-        }
+        remember();
         this.data = next == null ? new JsonObject() : next;
         String reported = BankSnapshot.text(this.data, "refusal");
         if (reported != null) {
@@ -47,85 +53,96 @@ public final class BankAdminScreen extends Screen {
 
     @Override
     protected void init() {
-        bands = BankLayout.adminBands(this.height);
-        List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
-        if (find(rows, payId) == null) {
-            payId = rows.isEmpty() ? "" : rows.get(0).id();
+        int rows = figureRows();
+        bands = BankLayout.adminBands(this.width, this.height, rows);
+        if (!known(payId)) {
+            payId = "copper";
         }
-        currencies = new ChoiceListWidget(client, BankLayout.EDGE, bands.listY(), this.width - BankLayout.EDGE * 2, bands.listH());
-        currencies.setDrawer(false);
-        currencies.setChoices(choices(rows));
-        currencies.select(payId);
-        addSelectableChild(currencies);
-
-        int stepper = 22 + 4 + 88 + 4 + 22;
-        int x = Math.max(BankLayout.EDGE, (this.width - stepper) / 2);
-        addDrawableChild(ButtonWidget.builder(Text.literal("－"), button -> adjust(false))
-                .dimensions(x, bands.stepperY(), 22, 18).build());
-        amount = new TextFieldWidget(textRenderer, x + 26, bands.stepperY() + 1, 88, 16, Text.literal("数量"));
+        for (int i = 0; i < CURRENCY_IDS.length; i++) {
+            String id = CURRENCY_IDS[i];
+            String label = id.equals(payId) ? "▶ " + CURRENCY_NAMES[i] : CURRENCY_NAMES[i];
+            int width = Math.max(bands.listW(), textRenderer.getWidth(label) + 8);
+            currencyButtons[i] = ButtonWidget.builder(Text.literal(label), button -> choose(id))
+                    .dimensions(bands.listX(), bands.listY() + i * 14, width, 14)
+                    .build();
+            addDrawableChild(currencyButtons[i]);
+        }
+        amount = new TextFieldWidget(textRenderer, bands.stepperX() + 26, bands.stepperY(), 88, 14, Text.literal("数量"));
         amount.setMaxLength(32);
         amount.setText(amountText == null || amountText.isBlank() ? "1" : amountText);
+        addDrawableChild(ButtonWidget.builder(Text.literal("－"), button -> adjust(false))
+                .dimensions(bands.stepperX(), bands.stepperY(), 22, 16).build());
         addDrawableChild(amount);
         addDrawableChild(ButtonWidget.builder(Text.literal("＋"), button -> adjust(true))
-                .dimensions(x + 26 + 88 + 4, bands.stepperY(), 22, 18).build());
+                .dimensions(bands.stepperX() + 26 + 88 + 4, bands.stepperY(), 22, 16).build());
 
-        List<String> extras = List.of(
-                "无准备金增发",
-                "从存款转入准备金",
-                "从准备金转回存款",
-                "按准备金满额发行",
-                BankBook.freezeButton(data));
-        int cursor = BankLayout.EDGE;
-        int y = bands.extraY();
-        for (String label : extras) {
-            int width = Math.max(BankLayout.labelWidth(label), textRenderer.getWidth(label) + 12);
-            if (cursor + width > this.width - BankLayout.EDGE) {
-                cursor = BankLayout.EDGE;
-                y += 22;
-            }
-            String action = label;
-            addDrawableChild(ButtonWidget.builder(Text.literal(label), button -> extra(action))
-                    .dimensions(cursor, y, width, 18).build());
-            cursor += width + BankLayout.GAP;
-        }
-        int closeWidth = Math.max(BankLayout.labelWidth(BankChrome.CLOSE), textRenderer.getWidth(BankChrome.CLOSE) + 12);
+        String name = currencyName();
+        String qty = shownAmount();
+        unbackedButton = extraButton(Extra.UNBACKED, "无准备金增发 " + qty + " " + name);
+        fromDepositsButton = extraButton(Extra.FROM_DEPOSITS, "从存款转入准备金 " + qty + " " + name);
+        toDepositsButton = extraButton(Extra.TO_DEPOSITS, "从准备金转回存款 " + qty + " " + name);
+        fullButton = extraButton(Extra.FULL, "按准备金满额发行 " + name);
+        freezeButton = extraButton(Extra.FREEZE, BankBook.freezeButton(data));
+        placeExtras();
+
+        int closeWidth = textRenderer.getWidth(BankChrome.CLOSE) + 12;
         addDrawableChild(ButtonWidget.builder(Text.literal(BankChrome.CLOSE), button -> close())
-                .dimensions(this.width - BankLayout.EDGE - closeWidth, BankLayout.closeY(this.height), closeWidth, BankLayout.BUTTON_HEIGHT)
-                .build());
+                .dimensions(this.width - BankLayout.EDGE - closeWidth, 4, closeWidth, 16).build());
+    }
+
+    private ButtonWidget extraButton(Extra kind, String label) {
+        ButtonWidget button = ButtonWidget.builder(Text.literal(label), pressed -> extra(kind))
+                .dimensions(0, 0, textRenderer.getWidth(label) + 10, 16).build();
+        addDrawableChild(button);
+        return button;
+    }
+
+    private void placeExtras() {
+        ButtonWidget[] buttons = {unbackedButton, fromDepositsButton, toDepositsButton, fullButton, freezeButton};
+        int x = BankLayout.EDGE;
+        int y = bands.extraY();
+        int limit = this.width - BankLayout.EDGE;
+        for (ButtonWidget button : buttons) {
+            if (button == null) {
+                continue;
+            }
+            if (x > BankLayout.EDGE && x + button.getWidth() > limit) {
+                x = BankLayout.EDGE;
+                y += 16;
+            }
+            button.setPosition(x, y);
+            x += button.getWidth() + BankLayout.GAP;
+        }
+    }
+
+    private void choose(String id) {
+        remember();
+        payId = id;
+        clearAndInit();
     }
 
     private void adjust(boolean issue) {
         remember();
-        String currency = selected();
-        if (currency.isBlank()) {
-            notice = "请先在列表中选择一项。";
-            return;
-        }
         if (!typed(amountText)) {
             notice = "请在中间的格子里输入数量。点一次加或减，就按这个数量办理。";
             return;
         }
         notice = "";
         BankUiClient.send(issue
-                ? BankActions.adminBackedAmount(currency, amountText.trim())
-                : BankActions.adminRetire(currency, amountText.trim()));
+                ? BankActions.adminBackedAmount(payId, amountText.trim())
+                : BankActions.adminRetire(payId, amountText.trim()));
     }
 
-    private void extra(String label) {
+    private void extra(Extra kind) {
         remember();
-        if (label.equals(BankBook.PAUSE) || label.equals(BankBook.RESUME)) {
+        if (kind == Extra.FREEZE) {
             notice = "";
             BankUiClient.send(BankActions.adminFreeze());
             return;
         }
-        String currency = selected();
-        if (currency.isBlank()) {
-            notice = "请先在列表中选择一项。";
-            return;
-        }
-        if ("按准备金满额发行".equals(label)) {
+        if (kind == Extra.FULL) {
             notice = "";
-            BankUiClient.send(BankActions.adminBacked(currency));
+            BankUiClient.send(BankActions.adminBacked(payId));
             return;
         }
         if (!typed(amountText)) {
@@ -134,10 +151,10 @@ public final class BankAdminScreen extends Screen {
         }
         notice = "";
         String quantity = amountText.trim();
-        String command = switch (label) {
-            case "无准备金增发" -> BankActions.adminUnbacked(currency, quantity);
-            case "从存款转入准备金" -> BankActions.adminReserveFromDeposits(currency, quantity);
-            case "从准备金转回存款" -> BankActions.adminReserveToDeposits(currency, quantity);
+        String command = switch (kind) {
+            case UNBACKED -> BankActions.adminUnbacked(payId, quantity);
+            case FROM_DEPOSITS -> BankActions.adminReserveFromDeposits(payId, quantity);
+            case TO_DEPOSITS -> BankActions.adminReserveToDeposits(payId, quantity);
             default -> null;
         };
         if (command != null) {
@@ -152,121 +169,154 @@ public final class BankAdminScreen extends Screen {
         return BankRates.parse(quantity) != null && BankRates.parse(quantity).signum() > 0;
     }
 
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        syncLabels();
+        if (reflow) {
+            reflow = false;
+            clearAndInit();
+            return;
+        }
+        renderBackground(context);
+        drawFigures(context);
+        for (int i = 0; i < currencyButtons.length; i++) {
+            ButtonWidget button = currencyButtons[i];
+            if (button != null && CURRENCY_IDS[i].equals(payId)) {
+                context.fill(button.getX() - 1, button.getY() - 1, button.getX() + button.getWidth() + 1,
+                        button.getY() + button.getHeight() + 1, 0xFFC8A060);
+            }
+        }
+        super.render(context, mouseX, mouseY, delta);
+        if (!notice.isBlank()) {
+            context.drawText(textRenderer, notice, this.width / 2 + 4, bands.quoteY(), 0xFFFFCC88, false);
+        }
+    }
+
+    private void drawFigures(DrawContext context) {
+        int step = bands.lineStep();
+        String diamond = BankRates.centralQuote(data);
+        String note = BankRates.bankNoteQuote(data);
+        context.drawText(textRenderer, diamond, BankLayout.EDGE, bands.quoteY(), quoteColor(diamond), false);
+        context.drawText(textRenderer, note, BankLayout.EDGE, bands.quoteY() + step, quoteColor(note), false);
+
+        int left = BankLayout.EDGE;
+        int right = this.width / 2 + 4;
+        int y = bands.figureY();
+        y = drawPairs(context, BankBook.circulationLines(data), left, right, y, step);
+        y = drawColumns(context,
+                BankBook.metalLines(data, "copper", "铜锭", "copperReserve"),
+                BankBook.metalLines(data, "diamond", "钻石", "diamondReserve"),
+                left, right, y, step);
+        drawPairs(context, BankBook.noteLines(data), left, right, y, step);
+    }
+
+    private int drawColumns(DrawContext context, List<String> leftLines, List<String> rightLines,
+                            int left, int right, int y, int step) {
+        int rows = Math.max(leftLines.size(), rightLines.size());
+        for (int i = 0; i < rows; i++) {
+            if (y + 9 > bands.listY()) {
+                break;
+            }
+            if (i < leftLines.size()) {
+                context.drawText(textRenderer, leftLines.get(i), left, y, lineColor(leftLines.get(i)), false);
+            }
+            if (i < rightLines.size()) {
+                context.drawText(textRenderer, rightLines.get(i), right, y, lineColor(rightLines.get(i)), false);
+            }
+            y += step;
+        }
+        return y;
+    }
+
+    private int drawPairs(DrawContext context, List<String> lines, int left, int right, int y, int step) {
+        int half = (lines.size() + 1) / 2;
+        for (int i = 0; i < half; i++) {
+            if (y + 9 > bands.listY()) {
+                break;
+            }
+            context.drawText(textRenderer, lines.get(i), left, y, lineColor(lines.get(i)), false);
+            if (half + i < lines.size()) {
+                context.drawText(textRenderer, lines.get(half + i), right, y, lineColor(lines.get(half + i)), false);
+            }
+            y += step;
+        }
+        return y;
+    }
+
+    private void syncLabels() {
+        String name = currencyName();
+        String qty = shownAmount();
+        reflow |= relabel(unbackedButton, "无准备金增发 " + qty + " " + name);
+        reflow |= relabel(fromDepositsButton, "从存款转入准备金 " + qty + " " + name);
+        reflow |= relabel(toDepositsButton, "从准备金转回存款 " + qty + " " + name);
+        reflow |= relabel(fullButton, "按准备金满额发行 " + name);
+        reflow |= relabel(freezeButton, BankBook.freezeButton(data));
+        for (int i = 0; i < currencyButtons.length; i++) {
+            String label = CURRENCY_IDS[i].equals(payId) ? "▶ " + CURRENCY_NAMES[i] : CURRENCY_NAMES[i];
+            reflow |= relabel(currencyButtons[i], label);
+        }
+    }
+
+    private boolean relabel(ButtonWidget button, String text) {
+        if (button == null || text.equals(button.getMessage().getString())) {
+            return false;
+        }
+        if (textRenderer.getWidth(text) + 10 > button.getWidth()) {
+            return true;
+        }
+        button.setMessage(Text.literal(text));
+        return false;
+    }
+
+    private int figureRows() {
+        int circulation = (BankBook.circulationLines(data).size() + 1) / 2;
+        int metals = Math.max(
+                BankBook.metalLines(data, "copper", "铜锭", "copperReserve").size(),
+                BankBook.metalLines(data, "diamond", "钻石", "diamondReserve").size());
+        int notes = (BankBook.noteLines(data).size() + 1) / 2;
+        return circulation + metals + notes;
+    }
+
     private void remember() {
         if (amount != null && amount.getText() != null) {
             amountText = amount.getText();
         }
-        if (currencies != null && currencies.selectedId() != null) {
-            payId = currencies.selectedId();
-        }
     }
 
-    private String selected() {
-        if (currencies != null && currencies.selectedId() != null && !currencies.selectedId().isBlank()) {
-            return currencies.selectedId();
+    private String shownAmount() {
+        if (amount != null && amount.getText() != null && !amount.getText().isBlank()) {
+            return amount.getText().trim();
         }
-        return payId == null ? "" : payId;
+        return amountText == null || amountText.isBlank() ? "1" : amountText.trim();
     }
 
-    @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context);
-        int x = BankLayout.EDGE;
-        context.drawText(textRenderer, BankRates.centralQuote(data), x, bands.quoteY(), quoteColor(BankRates.centralQuote(data)), false);
-        context.drawText(textRenderer, BankRates.bankNoteQuote(data), x, bands.quoteY() + 12, quoteColor(BankRates.bankNoteQuote(data)), false);
-        drawBook(context);
-        context.drawText(textRenderer, "选择要调整的货币", x, bands.listY() - 12, 0xFFE8D090, false);
-        super.render(context, mouseX, mouseY, delta);
-        if (currencies != null) {
-            currencies.render(context, mouseX, mouseY, delta);
-        }
-        if (!notice.isBlank()) {
-            context.drawText(textRenderer, notice, x, this.height - 12, 0xFFFFCC88, false);
-        }
-    }
-
-    private void drawBook(DrawContext context) {
-        int x = BankLayout.EDGE;
-        int y = bands.bookY();
-        int width = this.width - BankLayout.EDGE * 2;
-        int height = bands.bookH();
-        List<String> lines = BankBook.visibleLedger(data);
-        int max = Math.max(0, lines.size() * 12 - (height - 8));
-        if (bookScroll > max) {
-            bookScroll = max;
-        }
-        context.fill(x, y, x + width, y + height, 0xFF101014);
-        context.enableScissor(x + 1, y + 1, x + width - 1, y + height - 1);
-        int lineY = y + 4 - bookScroll;
-        for (String line : lines) {
-            if (lineY > y + height) {
-                break;
+    private String currencyName() {
+        for (int i = 0; i < CURRENCY_IDS.length; i++) {
+            if (CURRENCY_IDS[i].equals(payId)) {
+                return CURRENCY_NAMES[i];
             }
-            if (lineY + 12 > y) {
-                int color = line.contains(BankBook.MISSING) || line.contains(BankRates.UNAVAILABLE) ? 0xFFAAAAAA : 0xFFE6E6E6;
-                if (line.equals(BankBook.CIRCULATION_NOTE)) {
-                    color = 0xFFAAAAAA;
-                }
-                context.drawText(textRenderer, line, x + 4, lineY, color, false);
-            }
-            lineY += 12;
         }
-        context.disableScissor();
-        frame(context, x, y, x + width, y + height);
+        return "铜锭";
+    }
+
+    private static boolean known(String id) {
+        for (String currency : CURRENCY_IDS) {
+            if (currency.equals(id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int quoteColor(String line) {
         return line.contains(BankRates.UNAVAILABLE) ? 0xFFAAAAAA : 0xFFE8D090;
     }
 
-    private static void frame(DrawContext context, int left, int top, int right, int bottom) {
-        context.fill(left, top, right, top + 1, 0xFFC8A060);
-        context.fill(left, bottom - 1, right, bottom, 0xFFC8A060);
-        context.fill(left, top, left + 1, bottom, 0xFFC8A060);
-        context.fill(right - 1, top, right, bottom, 0xFFC8A060);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (currencies != null && currencies.isMouseOver(mouseX, mouseY) && currencies.mouseClicked(mouseX, mouseY, button)) {
-            if (currencies.selectedId() != null) {
-                payId = currencies.selectedId();
-            }
-            return true;
+    private static int lineColor(String line) {
+        if (line.contains(BankBook.MISSING) || BankBook.CIRCULATION_NOTE.equals(line)) {
+            return 0xFFAAAAAA;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        if (currencies != null && currencies.mouseScrolled(mouseX, mouseY, amount)) {
-            return true;
-        }
-        int x = BankLayout.EDGE;
-        if (mouseX >= x && mouseX < this.width - BankLayout.EDGE && mouseY >= bands.bookY() && mouseY < bands.bookY() + bands.bookH()) {
-            int lines = BankBook.visibleLedger(data).size();
-            int max = Math.max(0, lines * 12 - (bands.bookH() - 8));
-            bookScroll = Math.max(0, Math.min(max, bookScroll - (int) Math.round(amount * 12)));
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, amount);
-    }
-
-    private static List<ChoiceListWidget.Choice> choices(List<BankSnapshot.MoneyRow> rows) {
-        List<ChoiceListWidget.Choice> choices = new ArrayList<>();
-        for (BankSnapshot.MoneyRow row : rows) {
-            choices.add(new ChoiceListWidget.Choice(row.id(), row.name()));
-        }
-        return choices;
-    }
-
-    private static BankSnapshot.MoneyRow find(List<BankSnapshot.MoneyRow> rows, String id) {
-        for (BankSnapshot.MoneyRow row : rows) {
-            if (row.id().equals(id)) {
-                return row;
-            }
-        }
-        return null;
+        return 0xFFE6E6E6;
     }
 
     @Override
