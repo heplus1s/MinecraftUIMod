@@ -38,6 +38,10 @@ class BankBookTest {
                 "按准备金尚可发行：暂无数据"), BankBook.book(data, "diamond", "钻石"));
         assertEquals(List.of("商店经营账户和土地出让账户：暂无数据"), BankBook.institutions(data));
         List<String> ledger = BankBook.visibleLedger(data);
+        assertTrue(ledger.contains("铜锭储蓄账面总值：暂无数据"));
+        assertTrue(ledger.contains("铜锭实际硬通货储蓄总值：暂无数据"));
+        assertTrue(ledger.contains("钻石储蓄账面总值：暂无数据"));
+        assertTrue(ledger.contains("钻石实际硬通货储蓄总值：暂无数据"));
         assertTrue(ledger.contains("铜锭准备金：1000000"));
         assertTrue(ledger.contains("铜锭央行储蓄：4"));
         assertTrue(ledger.contains("钻石准备金：1000"));
@@ -82,6 +86,11 @@ class BankBookTest {
                 "已锁定准备金：10",
                 "按准备金尚可发行：990"), BankBook.book(data, "note", "银行券"));
         assertEquals(List.of("商店经营账户：余额 40"), BankBook.institutions(data));
+        data.addProperty("copperBookSavings", "10.5");
+        data.addProperty("copperPhysicalSavings", "10");
+        List<String> compared = BankBook.visibleLedger(data);
+        assertTrue(compared.contains("铜锭储蓄账面总值：10.5000"));
+        assertTrue(compared.contains("铜锭实际硬通货储蓄总值：10"));
     }
 
     private static JsonObject snapshot(boolean frozen) {

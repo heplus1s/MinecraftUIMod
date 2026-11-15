@@ -94,6 +94,19 @@ public final class BankActions {
         return "admin-backed " + currencyId;
     }
 
+    /** Issues this exact amount against reserves. */
+    public static String adminBackedAmount(String currencyId, String quantity) {
+        return "admin-backed " + currencyId + " " + quantity;
+    }
+
+    public static String adminReserveFromDeposits(String currencyId, String quantity) {
+        return "admin-reserve-from-deposits " + currencyId + " " + quantity;
+    }
+
+    public static String adminReserveToDeposits(String currencyId, String quantity) {
+        return "admin-reserve-to-deposits " + currencyId + " " + quantity;
+    }
+
     /**
      * Switches the issuer's regime. {@code note} is a legal anchor only for peg.
      * Float and hard omit a bank-note anchor.

@@ -115,7 +115,30 @@ public final class BankBook {
     }
 
     private static List<String> currencyLines(JsonObject data, String id, String name, String rootReserve, boolean note) {
-        return linesFor(name, note, BankSnapshot.text(data, rootReserve), find(data, id, name));
+        BankSnapshot.CentralRow row = find(data, id, name);
+        List<String> lines = new ArrayList<>();
+        if (!note) {
+            lines.add(field(name + "储蓄账面总值", bookTotal(data, id, row)));
+            lines.add(field(name + "实际硬通货储蓄总值", physicalTotal(data, id, row)));
+        }
+        lines.addAll(linesFor(name, note, BankSnapshot.text(data, rootReserve), row));
+        return lines;
+    }
+
+    private static String bookTotal(JsonObject data, String id, BankSnapshot.CentralRow row) {
+        String root = firstPresent(data, id + "BookSavings", id + "BookTotal");
+        if (root != null) {
+            return root;
+        }
+        return row == null ? null : row.bookSavings();
+    }
+
+    private static String physicalTotal(JsonObject data, String id, BankSnapshot.CentralRow row) {
+        String root = firstPresent(data, id + "PhysicalSavings", id + "ActualSavings");
+        if (root != null) {
+            return root;
+        }
+        return row == null ? null : row.physicalSavings();
     }
 
     private static List<String> linesFor(String name, boolean note, String rootReserve, BankSnapshot.CentralRow row) {

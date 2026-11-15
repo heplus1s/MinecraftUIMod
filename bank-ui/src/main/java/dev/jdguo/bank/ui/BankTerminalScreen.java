@@ -40,8 +40,11 @@ public final class BankTerminalScreen extends Screen {
     private int bookY;
     private int bookW;
     private int bookH;
+    private ButtonWidget plusButton;
     private ButtonWidget unbackedButton;
     private ButtonWidget retireButton;
+    private ButtonWidget fromDepositsButton;
+    private ButtonWidget toDepositsButton;
     private ButtonWidget backedButton;
     private boolean closing;
     private TextFieldWidget amount;
@@ -56,6 +59,10 @@ public final class BankTerminalScreen extends Screen {
         captureSelections();
         boolean confirm = BankSnapshot.confirm(next);
         this.data = next == null ? new JsonObject() : next;
+        String reported = BankSnapshot.text(this.data, "refusal");
+        if (reported != null) {
+            notice = reported;
+        }
         if (confirm) {
             page = Page.CONFIRM;
         } else if (page == Page.CONFIRM) {
@@ -69,8 +76,11 @@ public final class BankTerminalScreen extends Screen {
         amount = null;
         pageBand = null;
         placed.clear();
+        plusButton = null;
         unbackedButton = null;
         retireButton = null;
+        fromDepositsButton = null;
+        toDepositsButton = null;
         backedButton = null;
         managementPane = null;
         managementBookBeside = false;
@@ -262,7 +272,8 @@ public final class BankTerminalScreen extends Screen {
         }
         List<BankSnapshot.MoneyRow> rows = BankSnapshot.currencies(data);
         ensurePay(rows);
-        int buttonY = BankLayout.contentBottom(this.height) - 22 * 4;
+        int rowsOfButtons = 7;
+        int buttonY = BankLayout.contentBottom(this.height) - 22 * rowsOfButtons;
         int fieldY = buttonY - 24;
         pageBand = new BankLayout.Band(0, 0, fieldY, fieldY, buttonY);
         int y = contentTop() + 40;
@@ -276,14 +287,20 @@ public final class BankTerminalScreen extends Screen {
         String qty = currentAmount();
         int x = mainLeft();
         int width = Math.max(40, mainWidth());
-        unbackedButton = ButtonWidget.builder(Text.literal(plusLabel(qty, name)), button -> adjustBy(true))
-                .dimensions(x, buttonY, width, 18).build();
-        retireButton = ButtonWidget.builder(Text.literal(minusLabel(qty, name)), button -> adjustBy(false))
-                .dimensions(x, buttonY + 22, width, 18).build();
+        plusButton = actionButton(plusLabel(qty, name), x, buttonY, width, () -> sendAdjust(BankActions::adminBackedAmount));
+        unbackedButton = actionButton(unbackedLabel(qty, name), x, buttonY + 22, width, () -> sendAdjust(BankActions::adminUnbacked));
+        retireButton = actionButton(minusLabel(qty, name), x, buttonY + 44, width, () -> sendAdjust(BankActions::adminRetire));
+        fromDepositsButton = actionButton(fromDepositsLabel(qty, name), x, buttonY + 66, width,
+                () -> sendAdjust(BankActions::adminReserveFromDeposits));
+        toDepositsButton = actionButton(toDepositsLabel(qty, name), x, buttonY + 88, width,
+                () -> sendAdjust(BankActions::adminReserveToDeposits));
+        addDrawableChild(plusButton);
         addDrawableChild(unbackedButton);
         addDrawableChild(retireButton);
+        addDrawableChild(fromDepositsButton);
+        addDrawableChild(toDepositsButton);
         addDrawableChild(ButtonWidget.builder(Text.literal(BankBook.freezeButton(data)), button -> send(BankActions.adminFreeze()))
-                .dimensions(x, buttonY + 44, width, 18).build());
+                .dimensions(x, buttonY + 110, width, 18).build());
         backedButton = ButtonWidget.builder(Text.literal("按准备金满额发行 " + name), button -> {
             String currency = selected("pay", payId);
             if (currency == null || currency.isBlank()) {
@@ -291,12 +308,16 @@ public final class BankTerminalScreen extends Screen {
                 return;
             }
             send(BankActions.adminBacked(currency));
-        }).dimensions(x, buttonY + 66, width, 18).build();
+        }).dimensions(x, buttonY + 132, width, 18).build();
         addDrawableChild(backedButton);
         addDrawableChild(textButton("返回总账", mainRight() - buttonWidth("返回总账"), contentTop(), () -> open(Page.MANAGEMENT)));
     }
 
-    private void adjustBy(boolean increase) {
+    private ButtonWidget actionButton(String label, int x, int y, int width, Runnable action) {
+        return ButtonWidget.builder(Text.literal(label), button -> action.run()).dimensions(x, y, width, 18).build();
+    }
+
+    private void sendAdjust(java.util.function.BiFunction<String, String, String> command) {
         captureSelections();
         String currency = selected("pay", payId);
         if (currency == null || currency.isBlank()) {
@@ -309,9 +330,7 @@ public final class BankTerminalScreen extends Screen {
             return;
         }
         notice = "";
-        send(increase
-                ? BankActions.adminUnbacked(currency, quantity)
-                : BankActions.adminRetire(currency, quantity));
+        send(command.apply(currency, quantity));
     }
 
     private static boolean typedAmount(String quantity) {
@@ -322,11 +341,23 @@ public final class BankTerminalScreen extends Screen {
     }
 
     private static String plusLabel(String quantity, String currency) {
-        return "＋ 无准备金增发 " + quantity + " " + currency;
+        return "＋ 按准备金发行 " + quantity + " " + currency;
+    }
+
+    private static String unbackedLabel(String quantity, String currency) {
+        return "无准备金增发 " + quantity + " " + currency;
     }
 
     private static String minusLabel(String quantity, String currency) {
         return "－ 从流通中注销 " + quantity + " " + currency;
+    }
+
+    private static String fromDepositsLabel(String quantity, String currency) {
+        return "从存款转入准备金 " + quantity + " " + currency;
+    }
+
+    private static String toDepositsLabel(String quantity, String currency) {
+        return "从准备金转回存款 " + quantity + " " + currency;
     }
 
     private void initIssuanceSwitch() {
@@ -717,11 +748,20 @@ public final class BankTerminalScreen extends Screen {
         }
         String name = adjustName();
         String qty = currentAmount();
+        if (plusButton != null) {
+            plusButton.setMessage(Text.literal(plusLabel(qty, name)));
+        }
         if (unbackedButton != null) {
-            unbackedButton.setMessage(Text.literal(plusLabel(qty, name)));
+            unbackedButton.setMessage(Text.literal(unbackedLabel(qty, name)));
         }
         if (retireButton != null) {
             retireButton.setMessage(Text.literal(minusLabel(qty, name)));
+        }
+        if (fromDepositsButton != null) {
+            fromDepositsButton.setMessage(Text.literal(fromDepositsLabel(qty, name)));
+        }
+        if (toDepositsButton != null) {
+            toDepositsButton.setMessage(Text.literal(toDepositsLabel(qty, name)));
         }
         if (backedButton != null) {
             backedButton.setMessage(Text.literal("按准备金满额发行 " + name));
