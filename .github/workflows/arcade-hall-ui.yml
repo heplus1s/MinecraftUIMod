@@ -1,0 +1,64 @@
+name: Build and release Arcade Hall UI
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/arcade-hall-ui.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: heplus1s/MinecraftArcadeMod
+          ref: b9cefd36a2ef8d49b7501bcdcce0748510eb825d
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build independent client interface
+        run: bash gradlew --no-daemon clean test remapUiJar
+      - name: Verify packaged client-only entrypoint and dependency
+        run: |
+          python3 - <<'PY'
+          import json, zipfile
+          name = 'build/libs/arcadehall-ui-0.1.2.jar'
+          with zipfile.ZipFile(name) as jar:
+              m = json.loads(jar.read('fabric.mod.json'))
+              assert (m['id'], m['version'], m['environment']) == ('arcadehall-ui', '0.1.2', 'client'), m
+              assert m['depends']['fabricloader'] == '>=0.15.10', m
+              assert set(m['entrypoints']) == {'client'}, m
+              for ep in m['entrypoints']['client']:
+                  assert ep.replace('.', '/') + '.class' in jar.namelist(), ep
+              assert not any(p.startswith('dev/jdguo/arcade/') and p.endswith('.class') and not p.startswith('dev/jdguo/arcade/client/') for p in jar.namelist())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arcadehall-ui
+          path: build/libs/arcadehall-ui-0.1.2.jar
+          if-no-files-found: error
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: arcadehall-ui
+          path: release-jars
+      - name: Publish only the standalone client jar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view arcadehall-ui-v0.1.2 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; leaving unchanged"
+            exit 0
+          fi
+          gh release create arcadehall-ui-v0.1.2 release-jars/arcadehall-ui-0.1.2.jar -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Arcade Hall UI v0.1.2" --notes "Standalone Minecraft 1.20.1 client interface. Requires Java 17, Fabric Loader 0.15.10 or later, and Fabric API. Do not install alongside the integrated Arcade Hall jar. Server mod: https://github.com/heplus1s/MinecraftArcadeMod"
