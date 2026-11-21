@@ -1,90 +1,12 @@
-name: Build and release gameui
+name: gameui distribution location
 on:
-  push:
-    branches: [main, 'verify/arcade-v*']
-    paths: ['.github/workflows/arcade-hall-ui.yml']
   workflow_dispatch:
-permissions:
-  contents: read
-env:
-  UI_VERSION: '0.1.5'
-  UI_PUBLIC_NAME: gameui
+permissions: {}
 jobs:
-  build:
+  notice:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: heplus1s/MinecraftArcadeMod
-          ref: 86e04cc6bf5ff0a66ab0d40a68fc58d5e944ba4e
-          persist-credentials: false
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Build independent client interface
-        run: bash gradlew --no-daemon clean test remapUiJar
-      - name: Verify packaged client-only entrypoint and dependency
+      - name: Show the official binary release location
         run: |
-          python3 - <<'PY'
-          import json, os, pathlib, shutil, zipfile
-          version = os.environ['UI_VERSION']
-          public_name = os.environ['UI_PUBLIC_NAME']
-          name = pathlib.Path(f'build/libs/arcadehall-ui-{version}.jar')
-          with zipfile.ZipFile(name) as jar:
-              m = json.loads(jar.read('fabric.mod.json'))
-              assert (m['id'], m['version'], m['environment']) == ('arcadehall-ui', version, 'client'), m
-              assert m['depends']['fabricloader'] == '>=0.15.10', m
-              assert set(m['entrypoints']) == {'client'}, m
-              for ep in m['entrypoints']['client']:
-                  assert ep.replace('.', '/') + '.class' in jar.namelist(), ep
-              assert not any(p.startswith('dev/jdguo/arcade/') and p.endswith('.class') and not p.startswith('dev/jdguo/arcade/client/') for p in jar.namelist())
-          output = pathlib.Path('release-jars') / f'{public_name}-{version}.jar'
-          output.parent.mkdir(exist_ok=True)
-          shutil.copyfile(name, output)
-          PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.UI_PUBLIC_NAME }}
-          path: release-jars/${{ env.UI_PUBLIC_NAME }}-${{ env.UI_VERSION }}.jar
-          if-no-files-found: error
-  release:
-    if: github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.UI_PUBLIC_NAME }}
-          path: release-jars
-      - name: Wait for the matching tested server release
-        run: |
-          set -euo pipefail
-          for i in {1..36}; do
-            if curl -fsSL https://api.github.com/repos/heplus1s/MinecraftArcadeMod/releases/tags/v0.1.5 |
-              jq -e '.draft == false and .prerelease == false and .target_commitish == "dc99a0551fb5f4704d1a4d3b584f9f9c084a4a64" and any(.assets[]; .name == "arcadehall-0.1.5.jar")' >/dev/null; then
-              exit 0
-            fi
-            sleep 15
-          done
-          echo "Matching server release is not available; no client release published"
-          exit 1
-      - name: Publish only the standalone client jar
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          latest="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
-          if [[ "$latest" != "$GITHUB_SHA" ]]; then
-            echo "A newer main commit exists; skipping this release"
-            exit 0
-          fi
-          tag="arcadehall-ui-v${UI_VERSION}"
-          if gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release already exists; leaving unchanged"
-            exit 0
-          fi
-          gh release create "$tag" "release-jars/${UI_PUBLIC_NAME}-${UI_VERSION}.jar" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "${UI_PUBLIC_NAME} v${UI_VERSION}" --notes "Standalone Minecraft 1.20.1 client interface. Requires Java 17, Fabric Loader 0.15.10 or later, and Fabric API. Do not install alongside the integrated Arcade Hall JAR."
+          echo 'gameui is now built in its source repository.'
+          echo 'Public JAR downloads: https://github.com/heplus1s/MinecraftArcadeReleases/releases'
