@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: heplus1s/MinecraftArcadeMod
-          ref: d67b7673976c1c32b173364b761d7039ea981c1b
+          ref: 78dae352f83f6aca78882a4f3b55336ce6ff66ca
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
