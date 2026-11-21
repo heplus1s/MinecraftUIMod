@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          latest="$(gh api \"repos/$GITHUB_REPOSITORY/git/ref/heads/main\" --jq .object.sha)"
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
           if [[ "$latest" != "$GITHUB_SHA" ]]; then
             echo "A newer main commit exists; skipping this release"
             exit 0
