@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 env:
-  UI_VERSION: '0.1.4'
+  UI_VERSION: '0.1.5'
   UI_PUBLIC_NAME: gameui
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: heplus1s/MinecraftArcadeMod
-          ref: cdc12dd14cfff6eef4453f2a2f610187dd65578f
+          ref: 86e04cc6bf5ff0a66ab0d40a68fc58d5e944ba4e
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
@@ -64,8 +64,8 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..36}; do
-            if curl -fsSL https://api.github.com/repos/heplus1s/MinecraftArcadeMod/releases/tags/v0.1.4 |
-              jq -e '.draft == false and .prerelease == false and .target_commitish == "cdc12dd14cfff6eef4453f2a2f610187dd65578f" and any(.assets[]; .name == "arcadehall-0.1.4.jar")' >/dev/null; then
+            if curl -fsSL https://api.github.com/repos/heplus1s/MinecraftArcadeMod/releases/tags/v0.1.5 |
+              jq -e '.draft == false and .prerelease == false and .target_commitish == "dc99a0551fb5f4704d1a4d3b584f9f9c084a4a64" and any(.assets[]; .name == "arcadehall-0.1.5.jar")' >/dev/null; then
               exit 0
             fi
             sleep 15
